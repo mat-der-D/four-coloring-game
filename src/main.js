@@ -2,7 +2,7 @@ import "./style.css";
 // 一覧（地方 -> 都道府県 -> ステージ）。地図そのものはステージを選んだときに public/maps/ から読む
 import DATA from "./data/stages.json";
 import { COLORS, BLANK, INK, CONF, parts, patternDefs, mapSVG, unitsPerPx } from "./render.js";
-import { drawShareImage, toBlob, stageTitle, shareText, SNS } from "./share.js";
+import { drawShareImage, toBlob, stageTitle, shareText, SNS, snsIcon } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
 const BASE = import.meta.env.BASE_URL;
@@ -332,7 +332,7 @@ async function share() {
   const url = location.origin + BASE;
   const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
   $("sh-msg").innerHTML = `${esc(shared.text)}\n<u>${esc(url)}</u>`;
-  $("sh-sns").innerHTML = SNS.map((s) => `<a href="${s.href(shared.text, url)}" target="_blank" rel="noopener"><i style="background:${s.bg}">${s.mark}</i>${s.label}</a>`).join("");
+  $("sh-sns").innerHTML = SNS.map((s) => `<a href="${s.href(shared.text, url)}" target="_blank" rel="noopener">${snsIcon(s)}${s.label}</a>`).join("");
   const can = !!(navigator.canShare && navigator.canShare({ files: [shared.file] }));
   $("sh-native").disabled = !can;
   $("sh-hint").textContent = can

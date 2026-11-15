@@ -1,5 +1,7 @@
 // 共有: 共有画像（地図・ステージ名・タイムだけ）、共有の文面、SNS の投稿画面
 import { COLORS, INK, SUB, parts, mapSVG, unitsPerPx } from "./render.js";
+// 各サービスのロゴ（Simple Icons、CC0）。使う 5 つだけがビルドに入る
+import { siX, siLine, siBluesky, siMisskey, siMastodon } from "simple-icons";
 
 const MINCHO = `"BIZ UDPMincho", "Hiragino Mincho ProN", serif`;
 const GOTHIC = `"BIZ UDPGothic", "Hiragino Sans", sans-serif`;
@@ -111,10 +113,14 @@ export const shareText = ({ title, time }) => `${title}を ${time} で塗り分�
 // ---------- SNS の投稿画面 ----------
 // どれも渡せるのは文面と URL だけ（画像は渡せない）。画像付きで投稿するには、端末の共有か、画像の保存・コピーが要る
 export const SNS = [
-  { id: "x", label: "X", mark: "𝕏", bg: "#111", href: (text, url) => `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
-  { id: "line", label: "LINE", mark: "L", bg: "#06C755", href: (text, url) => `https://line.me/R/share?text=${encodeURIComponent(text + "\n" + url)}` },
-  { id: "bluesky", label: "Bluesky", mark: "b", bg: "#1185FE", href: (text, url) => `https://bsky.app/intent/compose?text=${encodeURIComponent(text + "\n" + url)}` },
+  { id: "x", icon: siX, color: "#000000", href: (text, url) => `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
+  { id: "line", icon: siLine, color: "#06C755", href: (text, url) => `https://line.me/R/share?text=${encodeURIComponent(text + "\n" + url)}` },
+  { id: "bluesky", icon: siBluesky, color: "#1185FE", href: (text, url) => `https://bsky.app/intent/compose?text=${encodeURIComponent(text + "\n" + url)}` },
   // Misskey と Mastodon はサーバーが利用者ごとに違う。公式の中継ページで、利用者が自分のサーバーを選ぶ
-  { id: "misskey", label: "Misskey", mark: "M", bg: "#86B300", href: (text, url) => `https://misskey-hub.net/share?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
-  { id: "mastodon", label: "Mastodon", mark: "m", bg: "#6364FF", href: (text, url) => `https://share.joinmastodon.org/?text=${encodeURIComponent(text + "\n" + url)}` },
-];
+  { id: "misskey", icon: siMisskey, color: "#86B300", href: (text, url) => `https://misskey-hub.net/share?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
+  { id: "mastodon", icon: siMastodon, color: "#6364FF", href: (text, url) => `https://share.joinmastodon.org/?text=${encodeURIComponent(text + "\n" + url)}` },
+].map((s) => ({ ...s, label: s.icon.title }));
+
+// ロゴの SVG（24×24 のパスを、ブランドカラーで塗る）
+export const snsIcon = (s, size = 40) =>
+  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" role="img" aria-hidden="true"><path fill="${s.color}" d="${s.icon.path}"/></svg>`;

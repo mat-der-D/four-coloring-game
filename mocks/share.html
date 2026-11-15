@@ -114,7 +114,7 @@
 </div>
 
 <script type="module">
-import { drawShareImage, toBlob, stageTitle, shareText, SNS } from "/src/share.js";
+import { drawShareImage, toBlob, stageTitle, shareText, SNS, snsIcon } from "/src/share.js";
 const TEXTS = { short: shareText }; // 文面は「短く」に決まった
 
 const $ = (id) => document.getElementById(id);
@@ -177,7 +177,7 @@ const textNow = () => TEXTS[cur](ctx);
 function renderText() {
   $("msg").innerHTML = textNow().replace(/&/g, "&amp;").replace(/</g, "&lt;") + `\n<u>${url}</u>`;
   $("tabs").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.k === cur));
-  $("sns").innerHTML = SNS.map((s) => `<a href="${s.href(textNow(), url)}" target="_blank" rel="noopener"><i style="background:${s.bg}">${s.mark}</i>${s.label}</a>`).join("");
+  $("sns").innerHTML = SNS.map((s) => `<a href="${s.href(textNow(), url)}" target="_blank" rel="noopener">${snsIcon(s, 44)}${s.label}</a>`).join("");
 }
 $("tabs").innerHTML = Object.entries(TAB).map(([k, v]) => `<button data-k="${k}">${v}</button>`).join("");
 $("tabs").onclick = (e) => { if (e.target.dataset.k) { cur = e.target.dataset.k; renderText(); } };
