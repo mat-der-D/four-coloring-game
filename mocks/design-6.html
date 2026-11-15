@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-/* 案 6「リソグラフ」: 孔版印刷の ZINE。4 色のインクに 4 種類の網（ベタ・水玉・斜線・ベタ濃色）を割り当て、
-   色だけでなく模様でも見分けられるようにする。衝突は黄黒ではなく白黒の工事テープ */
+/* 案 6「リソグラフ」: 孔版印刷の ZINE。4 色のインクに 4 種類の網（ベタ・水玉・斜線・格子）を割り当て、
+   色だけでなく模様でも見分けられるようにする。衝突は白で縁取った赤線と × 印（赤は衝突専用） */
 :root{
   --paper:#FAFAF7;
   --ink:#1A1A2E;      /* 墨（やや青い黒） */
@@ -20,6 +20,7 @@
   --c2:#00A3A3;       /* ティール */
   --c3:#2D3FA0;       /* ブルー */
   --land:#ECEBE4;
+  --red:#D7001A;      /* 衝突だけに使う赤 */
   --d:"Dela Gothic One",sans-serif;
   --g:"Zen Kaku Gothic New",sans-serif;
 }
@@ -76,7 +77,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
 .st b{font-family:var(--d);font-weight:400;font-size:26px;font-variant-numeric:tabular-nums}
 .st span{font-size:10px;font-weight:700;margin-top:2px}
-.st.sm{width:54px;height:54px;border-width:2px}
+.st.sm{width:50px;height:50px;border-width:2px}
 .st.sm b{font-size:21px}
 
 .blk{margin-top:26px}
@@ -110,8 +111,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .whole .nm{font-family:var(--d);font-size:30px;line-height:1.15}
 .whole .nm small{display:block;font-family:var(--g);font-size:12px;font-weight:500;opacity:.85;margin-top:4px}
 .whole .big{font-family:var(--d);font-size:58px;line-height:.9}
-.whole .big span{display:inline!important;margin-left:6px}
-.whole .big span{display:block;font-family:var(--g);font-size:13px;font-weight:700;margin-top:6px}
+.whole .big span{font-family:var(--g);font-size:13px;font-weight:700;margin-left:6px}
 .whole svg{display:block;width:128px;height:118px;grid-column:2;grid-row:1}
 .whole svg path{fill:rgba(255,255,255,.08);stroke:#fff;stroke-width:.9;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 
@@ -125,14 +125,14 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .board svg{position:absolute;inset:14px 10px;width:calc(100% - 20px);height:calc(100% - 28px)}
 .reg{stroke:none}
 .bd{fill:none;stroke:var(--ink);stroke-width:1.4;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.cf1{fill:none;stroke:#fff;stroke-width:12;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.cf2{fill:none;stroke:var(--ink);stroke-width:7;stroke-dasharray:6 5;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.cf1{fill:none;stroke:#fff;stroke-width:13;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.cf2{fill:none;stroke:var(--red);stroke-width:7;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .lab{font-size:30px;font-weight:700;fill:var(--ink);text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#fff;stroke-width:7px;stroke-linejoin:round}
 .gf{border-top:2.5px solid var(--ink);padding:10px 16px 26px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .sw{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700}
 .sw i{width:46px;height:28px;border-radius:14px;background:var(--ink);position:relative;flex:none}
 .sw i::after{content:"";position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;
-  background:repeating-linear-gradient(45deg,#fff 0 3px,var(--ink) 3px 6px);box-shadow:0 0 0 2px #fff}
+  background:var(--red);box-shadow:0 0 0 3px #fff}
 .left{display:flex;align-items:baseline;gap:4px;font-size:13px;font-weight:700}
 .left b{font-family:var(--d);font-weight:400;font-size:34px;line-height:1}
 .legend{display:flex;gap:6px;justify-content:center;align-items:center;padding:0 0 8px;font-size:12px;font-weight:700;color:var(--sub)}
@@ -161,8 +161,8 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 
 <div class="cap">
   <h1>案 6　リソグラフ印刷の ZINE</h1>
-  <p>地図帳ではなく、孔版印刷の手刷り冊子の質感。蛍光ピンク・イエロー・ティール・ブルーの 4 インクに、ベタ・水玉・斜線などの網を一つずつ割り当て、色覚によらず模様でも塗り分けが見分けられるようにした。</p>
-  <p>同じ色の隣りあいは赤ではなく白黒の破線（工事テープ）で示し、4 色のどれとも混ざらない。見出しは太い Dela Gothic One に版ずれのピンクを重ね、地域数はゴム印のようなスタンプで大きく出す。</p>
+  <p>地図帳ではなく、孔版印刷の手刷り冊子の質感。蛍光ピンク・イエロー・ティール・ブルーの 4 インクに、ベタ・水玉・斜線・格子の網を一つずつ割り当て、色覚によらず模様でも塗り分けが見分けられるようにした。</p>
+  <p>同じ色の隣りあいは、白で縁取った太い赤線と境界の中ほどの赤い × で示す（赤は衝突にしか使わない）。選択画面の地図は塗らずに輪郭だけ。見出しは太い Dela Gothic One に版ずれのピンクを重ね、地域数はゴム印のようなスタンプで大きく出す。</p>
   <p>県全体はブルーのベタ刷りの大きなカードにして、切り取り線の下に置く。クリア画面はそのまま共有画像になるポスター。</p>
 </div>
 
@@ -242,8 +242,8 @@ function defs(svg, id, u) {
                el("circle", { cx: u/2, cy: u/2, r: u*0.2, fill: "#fff", "fill-opacity": .75 }, p); });
   mk(2, p => { el("rect", { width: u, height: u, fill: "#00A3A3" }, p);                     // ティール: 斜線
                el("path", { d: `M0 ${u}L${u} 0M${-u/2} ${u/2}L${u/2} ${-u/2}M${u/2} ${u*1.5}L${u*1.5} ${u/2}`, stroke: "#006E70", "stroke-width": u*0.22 }, p); });
-  mk(3, p => { el("rect", { width: u, height: u, fill: "#2D3FA0" }, p);                     // ブルー: 細い横線
-               el("rect", { y: u*0.45, width: u, height: u*0.1, fill: "#4C5FC4" }, p); });
+  mk(3, p => { el("rect", { width: u, height: u, fill: "#2D3FA0" }, p);                     // ブルー: 格子
+               el("path", { d: `M0 ${u/2}H${u}M${u/2} 0V${u}`, stroke: "#7F8FE0", "stroke-width": u*0.12 }, p); });
   return i => `url(#${id}p${i})`;
 }
 
@@ -288,8 +288,8 @@ function drawMap(svg, m, col, id, opt = {}) {
   zen.className = "entry zen";
   zen.innerHTML = `<svg class="jp"></svg><span class="nm">日本地図<small>47 都道府県</small></span><span class="st"><b>47</b><span>地域</span></span>`;
   B.appendChild(zen);
-  { const s = zen.querySelector("svg"); const cj = color4(jp); s.setAttribute("viewBox", vb(jp, 4)); const f = defs(s, "jp", jp.box[2] / 40);
-    jp.regions.forEach((r, i) => el("path", { d: r.d, fill: f(cj[i]) }, s));
+  { const s = zen.querySelector("svg"); s.setAttribute("viewBox", vb(jp, 4));
+    jp.regions.forEach(r => el("path", { d: r.d, fill: "#ECEBE4" }, s));
     el("path", { d: jp.border, fill: "none", stroke: "#1A1A2E", "stroke-width": .6, "vector-effect": "non-scaling-stroke" }, s); }
 
   S.blocks.forEach((b, i) => {
@@ -333,7 +333,13 @@ function drawMap(svg, m, col, id, opt = {}) {
   const conflicts = m.pairs.filter(([x, y]) => play[x] >= 0 && play[x] === play[y]);
   const g = document.getElementById("game");
   const fillG = drawMap(g, m, play, "g", { pad: 10, cells: 64 });
-  for (const [, , d] of conflicts) { el("path", { d, class: "cf1" }, g); el("path", { d, class: "cf2" }, g); }
+  for (const [, , d] of conflicts) {
+    el("path", { d, class: "cf1" }, g); el("path", { d, class: "cf2" }, g);
+    // 境界の中ほどに赤い × の印
+    const pts = d.match(/-?[\d.]+/g).map(Number), k = Math.floor(pts.length / 4) * 2, x = pts[k], y = pts[k + 1], r = m.box[2] * 0.03;
+    el("circle", { cx: x, cy: y, r, fill: "#D7001A", stroke: "#fff", "stroke-width": r * 0.35 }, g);
+    el("path", { d: `M${x - r*.45} ${y - r*.45}L${x + r*.45} ${y + r*.45}M${x + r*.45} ${y - r*.45}L${x - r*.45} ${y + r*.45}`, stroke: "#fff", "stroke-width": r * 0.32, "stroke-linecap": "round" }, g);
+  }
   // 区名
   m.regions.forEach((r, i) => { const t = el("text", { x: r.c[0], y: r.c[1], class: "lab" }, g); t.textContent = names[i].replace("区", ""); });
   document.getElementById("left").textContent = play.filter(c => c < 0).length;

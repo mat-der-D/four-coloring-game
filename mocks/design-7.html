@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>デザイン案 7：千代紙とカッターマット</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 案 7「千代紙」: 地域を色紙の切り抜きとして扱う。4 色はそれぞれ柄つきの千代紙で、色と柄の両方で見分けられる。
+   下敷きはカッターマット。地域のすき間からマットの緑が見える。 */
+:root{
+  --mat:#1E6B57;      /* カッターマット */
+  --mat-dk:#17533F;
+  --mat-line:rgba(255,255,255,.10);
+  --paper:#FBFCFA;    /* 未着色の白い紙 */
+  --ink:#16201C;
+  --sub:#5E6B66;
+  --c0:#F2C318;       /* 山吹: 無地 */
+  --c1:#56B4E9;       /* 空色: 水玉 */
+  --c2:#8E6CC9;       /* 藤: 斜めの縞 */
+  --conf:#E5202E;     /* 同じ色のとなり */
+  --c3:#24418F;       /* 紺: 市松 */
+  --round:"Zen Maru Gothic",sans-serif;
+  --dela:"Dela Gothic One",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#D5DBD8;font-family:var(--round);color:var(--ink);padding:24px 30px 40px}
+.cap{max-width:1632px;margin:0 auto 20px;font-size:14px;line-height:1.75}
+.cap h1{font-family:var(--dela);font-weight:400;font-size:22px;margin:0 0 4px;letter-spacing:.02em}
+.cap p{margin:0;max-width:72em}
+.row{display:flex;gap:24px;justify-content:center;align-items:flex-start}
+.ph{flex:none}
+.ph .lbl{font-size:13px;color:var(--sub);margin:0 0 8px 6px;font-weight:700}
+.frame{width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;
+  box-shadow:0 0 0 9px #222826,0 0 0 10px #4b5552,0 18px 40px rgba(20,30,26,.35);
+  background:var(--mat);
+  background-image:
+    linear-gradient(var(--mat-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--mat-line) 1px,transparent 1px),
+    linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:100px 100px,100px 100px,20px 20px,20px 20px;
+  background-position:-1px -1px;
+  display:flex;flex-direction:column;color:#fff}
+.sb{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 34px;font-size:14px;font-weight:700;color:#fff}
+.sb i{width:24px;height:11px;border:1.5px solid #fff;border-radius:3px;display:block;position:relative}
+.sb i::after{content:"";position:absolute;inset:1.5px;right:5px;background:#fff;border-radius:1px}
+
+/* 紙の切れはし: 白い紙を少し浮かせる */
+.pc{background:var(--paper);color:var(--ink);border-radius:6px;box-shadow:0 2px 0 rgba(0,0,0,.28)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;text-align:left}
+button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+
+/* 地域数のシール */
+.seal{flex:none;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:54px;height:54px;border-radius:50%;
+  background:var(--c0);color:var(--ink);box-shadow:0 2px 0 rgba(0,0,0,.28);line-height:1}
+.seal b{font-family:var(--dela);font-weight:400;font-size:22px;font-variant-numeric:tabular-nums}
+.seal small{font-size:10px;font-weight:900;margin-top:2px}
+.seal.big{width:66px;height:66px}
+.seal.big b{font-size:28px}
+
+/* 1. トップ */
+.scr{flex:1;overflow:auto;scrollbar-width:none}
+.scr::-webkit-scrollbar{display:none}
+.top{padding:10px 18px 30px}
+.brand{display:flex;align-items:center;gap:12px;margin:6px 2px 4px}
+.brand h2{font-family:var(--dela);font-weight:400;font-size:30px;margin:0;letter-spacing:.03em}
+.chips{display:flex;gap:4px}
+.chips svg{display:block}
+.lead{margin:0 2px 16px;font-size:13.5px;color:rgba(255,255,255,.82);font-weight:500}
+.jp{display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px 8px 8px;margin-bottom:22px}
+.jp .tn{width:150px;height:150px}
+.jp .tx{flex:1;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.jp .nm{font-size:24px;font-weight:900}
+.blk{margin:0 0 20px}
+.entry{display:flex;align-items:center;gap:10px;width:100%;padding:6px 10px 6px 6px;min-height:92px}
+.entry .tn{width:80px;height:80px;flex:none}
+.entry .nm{flex:1;font-size:20px;font-weight:900;line-height:1.3}
+.entry .nm small{display:block;font-size:12px;font-weight:700;color:var(--sub)}
+.prefs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.pref{padding:10px 0 9px;text-align:center;font-size:14.5px;font-weight:700;border-radius:5px;
+  background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.45)}
+.credit{font-size:10.5px;color:rgba(255,255,255,.6);margin:24px 2px 0;line-height:1.6}
+
+/* 2. 県のステージ一覧 */
+.bar{display:flex;align-items:center;gap:10px;padding:6px 14px 10px;flex:none}
+.back{width:40px;height:40px;border-radius:50%;background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;box-shadow:0 2px 0 rgba(0,0,0,.28);flex:none}
+.bar h3{margin:0;font-size:26px;font-weight:900;flex:1}
+.bar h3 small{display:block;font-size:12px;font-weight:700;color:rgba(255,255,255,.75)}
+.list{padding:4px 14px 24px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.st{position:relative;display:flex;flex-direction:column;padding:8px 8px 10px}
+.st .tn{width:100%;height:118px}
+.st .nm{font-size:16px;font-weight:900;margin:4px 4px 0;line-height:1.3;padding-right:46px;min-height:2.6em;display:flex;align-items:flex-end}
+.st .seal{position:absolute;right:-5px;bottom:-6px}
+/* 県全体: 4 枚の千代紙を重ねた台紙。部分ステージの白い紙とは別物に見せる */
+.whole{position:relative;display:block;width:100%;margin-top:18px;padding:12px;border-radius:8px;background:var(--c3);color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.whole .strip{position:absolute;left:0;right:0;top:0;height:12px;border-radius:8px 8px 0 0;overflow:hidden;display:flex}
+.whole .strip span{flex:1}
+.whole .in{display:flex;align-items:center;gap:8px;margin-top:8px;background:var(--paper);color:var(--ink);border-radius:5px;padding:8px 12px 8px 6px}
+.whole .tn{width:132px;height:120px;flex:none}
+.whole .nm{flex:1;font-size:20px;white-space:nowrap;font-weight:900;line-height:1.25}
+.whole .nm small{display:block;font-size:12px;font-weight:700;color:var(--sub);margin-top:4px}
+
+/* 3. ゲーム中 */
+.gbar{display:flex;align-items:center;gap:10px;padding:4px 14px 8px;flex:none}
+.gbar .ttl{flex:1;font-size:20px;font-weight:900;line-height:1.2}
+.gbar .ttl small{display:block;font-size:11.5px;font-weight:700;color:rgba(255,255,255,.75)}
+.timer{font-family:var(--dela);font-size:24px;font-variant-numeric:tabular-nums;padding:6px 12px;line-height:1}
+.board{flex:1;position:relative}
+.board svg,.card svg{display:block;width:100%;height:100%}
+/* 選択画面の地図: マットの上に置いた、塗る前の白い紙 */
+.pc .tn,.whole .tn{background:var(--mat);border-radius:4px}
+.tn svg{display:block;width:100%;height:100%}
+.tray{flex:none;padding:10px 14px 26px;background:var(--mat-dk);box-shadow:0 -1px 0 rgba(255,255,255,.12)}
+.tray .r1{display:flex;align-items:center;gap:10px}
+.cyc{display:flex;align-items:center;gap:3px;flex:1;font-size:12px;color:rgba(255,255,255,.8);font-weight:700}
+.cyc svg{display:block;border-radius:4px;box-shadow:0 1.5px 0 rgba(0,0,0,.3)}
+.cyc em{font-style:normal;opacity:.6;margin:0 1px}
+.left{font-size:14px;font-weight:700;color:#fff;display:flex;align-items:baseline;gap:4px}
+.left b{font-family:var(--dela);font-weight:400;font-size:26px}
+.tog{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13.5px;font-weight:700}
+.sw{width:46px;height:28px;border-radius:14px;background:var(--paper);position:relative;flex:none}
+.sw::after{content:"";position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--ink)}
+.tog .ex{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.8)}
+
+/* 4. クリア */
+.clr{flex:1;display:flex;flex-direction:column;padding:6px 18px 30px}
+.card{background:var(--paper);color:var(--ink);border-radius:6px;padding:16px 14px 14px;box-shadow:0 3px 0 rgba(0,0,0,.3);transform:rotate(-1.2deg);margin:4px 4px 0}
+.card .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding:0 4px}
+.card .nm{font-size:13px;font-weight:700;color:var(--sub);line-height:1.2}
+.card .nm b{display:block;font-size:28px;font-weight:900;color:var(--ink)}
+.card .tm{font-family:var(--dela);font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+.card .mp{height:400px;margin-top:10px;background:var(--mat);border-radius:3px;
+  background-image:linear-gradient(var(--mat-line) 1px,transparent 1px),linear-gradient(90deg,var(--mat-line) 1px,transparent 1px);background-size:40px 40px}
+.card .ft{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:0 4px;font-size:11px;color:var(--sub);font-weight:700}
+.acts{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.acts .main{display:flex;align-items:center;justify-content:center;gap:8px;height:58px;border-radius:8px;background:var(--c0);color:var(--ink);font-size:19px;font-weight:900;box-shadow:0 3px 0 rgba(0,0,0,.3);text-align:center}
+.acts .two{display:flex;gap:10px}
+.acts .two button{flex:1;height:50px;border-radius:8px;background:var(--paper);color:var(--ink);font-size:16px;font-weight:900;text-align:center;box-shadow:0 2px 0 rgba(0,0,0,.28)}
+</style>
+</head>
+<body>
+<div class="cap">
+  <h1>案 7　千代紙とカッターマット</h1>
+  <p>地域を「色紙の切り抜き」として見せる工作の方向。4 色は柄つきの千代紙（山吹＝無地、空色＝水玉、藤＝縞、紺＝市松）で、明るさの差と柄の両方で見分けられる。赤系は塗り色に使わず、同じ色のとなりだけを白で縁どった赤い線と「×」の印で示す。</p>
+  <p>下敷きはカッターマットの緑で、地域のすき間からマットが見える。選択画面の地図は塗る前の白い紙のまま（答えを見せない）。「N 地域」は太い Dela Gothic One のシールで貼り、県全体は 4 色の帯のついた紺の台紙で部分ステージの白い紙と分けた。</p>
+</div>
+
+<div class="row">
+  <div class="ph"><div class="lbl">1　トップ</div><div class="frame">
+    <div class="sb"><span>9:41</span><i></i></div>
+    <div class="scr"><div class="top" id="top">
+      <div class="brand"><h2>四色ぬりわけ</h2><div class="chips" id="chips"></div></div>
+      <p class="lead">となり同士がちがう色になるように、4 色でぬりわけ。</p>
+      <div id="blocks"></div>
+      <p class="credit">出典：国土交通省 国土数値情報（行政区域データ 2025年）をもとに加工して作成</p>
+    </div></div>
+  </div></div>
+
+  <div class="ph"><div class="lbl">2　県のステージ一覧（愛知県）</div><div class="frame">
+    <div class="sb"><span>9:41</span><i></i></div>
+    <div class="bar"><button class="back" aria-label="もどる">‹</button><h3><small>中部</small>愛知県</h3></div>
+    <div class="scr"><div class="list">
+      <div class="grid2" id="aichi"></div>
+      <button class="whole" id="whole"></button>
+    </div></div>
+  </div></div>
+
+  <div class="ph"><div class="lbl">3　ゲーム中（名古屋市）</div><div class="frame">
+    <div class="sb"><span>9:41</span><i></i></div>
+    <div class="gbar"><button class="back" aria-label="もどる">‹</button><div class="ttl"><small>愛知県</small>名古屋市</div><div class="timer pc">1:07.4</div></div>
+    <div class="board" id="board"></div>
+    <div class="tray">
+      <div class="r1"><div class="cyc" id="cyc"></div><div class="left">のこり<b id="left">8</b></div></div>
+      <div class="tog"><span class="sw" role="switch" aria-checked="true"></span>同じ色のとなりを示す<span class="ex"><svg width="40" height="22" viewBox="0 0 40 22"><line x1="4" y1="11" x2="36" y2="11" stroke="#fff" stroke-width="9" stroke-linecap="round"/><line x1="4" y1="11" x2="36" y2="11" stroke="#E5202E" stroke-width="5" stroke-linecap="round"/><circle cx="20" cy="11" r="9" fill="#E5202E" stroke="#fff" stroke-width="2.5"/><path d="M16.5 7.5l7 7m0-7l-7 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg></span></div>
+    </div>
+  </div></div>
+
+  <div class="ph"><div class="lbl">4　クリア</div><div class="frame">
+    <div class="sb"><span>9:41</span><i></i></div>
+    <div class="clr">
+      <div class="card">
+        <div class="hd"><div class="nm">愛知県<b>名古屋市</b></div><div class="tm">1:42.8</div></div>
+        <div class="mp" id="clearmap"></div>
+        <div class="ft"><span>16 地域をぬりわけ</span><span>四色ぬりわけ</span></div>
+      </div>
+      <div class="acts">
+        <button class="main">共有</button>
+        <div class="two"><button>もう一度</button><button>ほかの地図</button></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<script type="module">
+const NS = "http://www.w3.org/2000/svg";
+const COLS = ["#F2C318", "#56B4E9", "#8E6CC9", "#24418F"];
+const MAT = "#1E6B57";
+const PAPER = "#FBFCFA";
+let uid = 0;
+
+// 千代紙の柄。size は画面上の px。scale は「地図の単位 / 画面 px」
+function patterns(scale) {
+  const id = "p" + (uid++);
+  const s = (n) => +(n * scale).toFixed(3);
+  const u = s(10);
+  const defs = `
+  <pattern id="${id}0" patternUnits="userSpaceOnUse" width="${u}" height="${u}"><rect width="${u}" height="${u}" fill="${COLS[0]}"/></pattern>
+  <pattern id="${id}1" patternUnits="userSpaceOnUse" width="${u}" height="${u}"><rect width="${u}" height="${u}" fill="${COLS[1]}"/><circle cx="${u/4}" cy="${u/4}" r="${s(1.7)}" fill="#fff" fill-opacity=".85"/><circle cx="${u*3/4}" cy="${u*3/4}" r="${s(1.7)}" fill="#fff" fill-opacity=".85"/></pattern>
+  <pattern id="${id}2" patternUnits="userSpaceOnUse" width="${s(7)}" height="${s(7)}" patternTransform="rotate(45)"><rect width="${s(7)}" height="${s(7)}" fill="${COLS[2]}"/><rect width="${s(2.6)}" height="${s(7)}" fill="#C3B0EA"/></pattern>
+  <pattern id="${id}3" patternUnits="userSpaceOnUse" width="${u}" height="${u}"><rect width="${u}" height="${u}" fill="${COLS[3]}"/><rect width="${u/2}" height="${u/2}" fill="#3A5BB5"/><rect x="${u/2}" y="${u/2}" width="${u/2}" height="${u/2}" fill="#3A5BB5"/></pattern>`;
+  return { defs, fill: (c) => (c < 0 ? PAPER : `url(#${id}${c})`) };
+}
+
+// 離島で枠が縦長になる地図は、大きな島（本土）に寄せて切り取る
+function cropBox(map) {
+  const boxes = [];
+  for (const r of map.regions) for (const sub of r.d.split(/(?=M)/)) {
+    const nums = sub.match(/-?\d+(\.\d+)?/g); if (!nums) continue;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (let i = 0; i + 1 < nums.length; i += 2) { const x = +nums[i], y = +nums[i + 1]; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    boxes.push([x0, y0, x1, y1, (x1 - x0) * (y1 - y0)]);
+  }
+  const big = Math.max(...boxes.map((b) => b[4]));
+  const keep = boxes.filter((b) => b[4] >= big * 0.02);
+  const x0 = Math.min(...keep.map((b) => b[0])), y0 = Math.min(...keep.map((b) => b[1]));
+  const x1 = Math.max(...keep.map((b) => b[2])), y1 = Math.max(...keep.map((b) => b[3]));
+  return [x0, y0, x1 - x0, y1 - y0];
+}
+
+// pairs から 4 色の塗り分けを作る（DSATUR + バックトラック）
+function fourColor(map) {
+  const n = map.regions.length, adj = Array.from({ length: n }, () => []);
+  for (const [a, b] of map.pairs) { adj[a].push(b); adj[b].push(a); }
+  const col = new Array(n).fill(-1);
+  function pick() {
+    let best = -1, bs = -1, bd = -1;
+    for (let v = 0; v < n; v++) if (col[v] < 0) {
+      const sat = new Set(adj[v].map((u) => col[u]).filter((c) => c >= 0)).size;
+      if (sat > bs || (sat === bs && adj[v].length > bd)) { best = v; bs = sat; bd = adj[v].length; }
+    }
+    return best;
+  }
+  (function go() {
+    const v = pick(); if (v < 0) return true;
+    for (let c = 0; c < 4; c++) if (!adj[v].some((u) => col[u] === c)) { col[v] = c; if (go()) return true; }
+    col[v] = -1; return false;
+  })();
+  return { col, adj };
+}
+
+// 地図の SVG を作る。colors[i] < 0 は未着色
+function mapSVG(el, map, colors, { pad = 6, crop = false, gap = 2.2, conflicts = [], mat = MAT } = {}) {
+  const W = el.clientWidth, H = el.clientHeight;
+  let [bx, by, bw, bh] = crop ? cropBox(map) : map.box;
+  const k = Math.min((W - pad * 2) / bw, (H - pad * 2) / bh);
+  const vw = W / k, vh = H / k;
+  const vx = bx - (vw - bw) / 2, vy = by - (vh - bh) / 2;
+  const P = patterns(1 / k);
+  const regs = map.regions.map((r, i) => `<path d="${r.d}" fill="${P.fill(colors[i])}"/>`).join("");
+  const conf = conflicts.map((d) => d).join(" ");
+  el.innerHTML = `<svg xmlns="${NS}" viewBox="${vx} ${vy} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet">
+    <defs>${P.defs}</defs>
+    <g style="filter:drop-shadow(0 ${1.6}px 0 rgba(0,0,0,.3))" stroke-linejoin="round">
+      ${regs}
+      <path d="${map.border}" fill="none" stroke="${mat}" stroke-width="${gap}" vector-effect="non-scaling-stroke"/>
+    </g>
+    ${conf ? `<path d="${conf}" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    <path d="${conf}" fill="none" stroke="#E5202E" stroke-width="5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    ${conflicts.map((d) => `<path class="cm" d="${d}" fill="none" stroke="none"/>`).join("")}` : ""}
+  </svg>`;
+}
+
+const cache = {};
+const load = (f) => (cache[f] ??= fetch("/maps/" + f).then((r) => r.json()));
+// 選択画面の地図は答えを見せないよう、塗る前の白い紙のまま
+const thumb = async (el, file, opt = {}) => { const m = await load(file); mapSVG(el, m, m.regions.map(() => -1), { gap: 1.4, pad: 3, ...opt }); };
+const seal = (n, big) => `<span class="seal${big ? " big" : ""}"><b>${n}</b><small>地域</small></span>`;
+
+// 色の見本（タイトル横と、ゲーム中の循環の順番）
+function swatch(c, size) {
+  const P = patterns(1);
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><defs>${P.defs}</defs><rect width="${size}" height="${size}" fill="${P.fill(c)}"/></svg>`;
+}
+document.getElementById("chips").innerHTML = [0, 1, 2, 3].map((c) => swatch(c, 18)).join("");
+document.getElementById("cyc").innerHTML = "タップで " + [0, 1, 2, 3].map((c) => swatch(c, 24)).join("<em>›</em>");
+
+// ---- 1. トップ ----
+const S = await (await fetch("/src/data/stages.json")).json();
+const blocks = document.getElementById("blocks");
+blocks.insertAdjacentHTML("beforeend", `<button class="jp pc"><div class="tn" id="t-jp"></div><div class="tx"><span class="nm">${S.zenkoku.name}</span>${seal(S.zenkoku.n, true)}</div></button>`);
+S.blocks.forEach((b, i) => {
+  const sub = b.name === "北海道" ? "" : `<small>${b.name}地方の ${b.prefs.length} 都府県</small>`;
+  blocks.insertAdjacentHTML("beforeend", `<div class="blk">
+    <button class="entry pc"><div class="tn" id="t-b${i}"></div><span class="nm">${sub}${b.stage.name}</span>${seal(b.stage.n)}</button>
+    <div class="prefs">${b.prefs.map((p) => `<button class="pref">${p.name}</button>`).join("")}</div></div>`);
+});
+thumb(document.getElementById("t-jp"), S.zenkoku.file, { gap: 1 });
+S.blocks.forEach((b, i) => thumb(document.getElementById("t-b" + i), b.stage.file, { crop: true }));
+
+// ---- 2. 愛知県 ----
+const aichi = S.blocks.flatMap((b) => b.prefs).find((p) => p.name === "愛知県");
+const g = document.getElementById("aichi");
+aichi.stages.forEach((s, i) => {
+  g.insertAdjacentHTML("beforeend", `<button class="st pc"><div class="tn" id="t-a${i}"></div><span class="nm">${s.name.replace(/^愛知県 /, "")}</span>${seal(s.n)}</button>`);
+  thumb(document.getElementById("t-a" + i), s.file);
+});
+document.getElementById("whole").innerHTML = `<div class="strip">${[0, 1, 2, 3].map((c) => `<span>${swatch(c, 200).replace("<svg ", '<svg style="display:block;width:100%;height:12px" preserveAspectRatio="xMinYMin slice" ')}</span>`).join("")}</div>
+  <div class="in"><div class="tn" id="t-whole"></div><span class="nm">${aichi.whole.name}全体<small>6 つの地域をつなげて</small></span>${seal(aichi.whole.n, true)}</div>`;
+thumb(document.getElementById("t-whole"), aichi.whole.file, { gap: 1 });
+
+// ---- 3 & 4. 名古屋市 ----
+const nagoya = await load("138.json");
+const { col, adj } = fourColor(nagoya);
+mapSVG(document.getElementById("clearmap"), nagoya, col, { pad: 14, gap: 2.4 });
+
+// ゲーム中: 半分ほどを未着色にし、1 か所だけ同じ色のとなりを作る
+const n = nagoya.regions.length;
+const play = col.map((c, i) => (i % 2 === 1 ? -1 : c));
+// 着色済み地域と未着色地域の組のうち、共有境界が長く、衝突がちょうど 1 か所になるものを選んで同じ色にする
+let best = null;
+for (const [a, b, d] of nagoya.pairs) for (const [u, v] of [[a, b], [b, a]]) {
+  if (play[u] < 0 || play[v] >= 0) continue;
+  if (adj[v].filter((x) => play[x] === play[u]).length !== 1) continue;
+  if (!best || d.length > best[2]) best = [u, v, d.length];
+}
+if (best) play[best[1]] = play[best[0]];
+const conflicts = nagoya.pairs.filter(([a, b]) => play[a] >= 0 && play[a] === play[b]).map((p) => p[2]);
+document.getElementById("left").textContent = play.filter((c) => c < 0).length;
+mapSVG(document.getElementById("board"), nagoya, play, { pad: 16, gap: 2.6, conflicts });
+// 共有境界の中ほどに「×」の印を置く（色に頼らず、形でも衝突が分かるように）
+const bsvg = document.querySelector("#board svg"), kk = bsvg.getScreenCTM().a;
+for (const cm of bsvg.querySelectorAll(".cm")) {
+  const p = cm.getPointAtLength(cm.getTotalLength() / 2), r = 11 / kk, t = 4.5 / kk;
+  cm.insertAdjacentHTML("afterend", `<g transform="translate(${p.x} ${p.y})"><circle r="${r}" fill="#E5202E" stroke="#fff" stroke-width="${2.5 / kk}"/><path d="M${-t} ${-t}L${t} ${t}M${t} ${-t}L${-t} ${t}" stroke="#fff" stroke-width="${2.6 / kk}" stroke-linecap="round"/></g>`);
+}
+</script>
+</body>
+</html>
