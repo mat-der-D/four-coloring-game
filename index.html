@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>四色ぬりわけ</title>
+</head>
+<body>
+<div id="sel" class="screen on">
+  <h1>四色ぬりわけ<span class="dots"><i style="background:#F2C14E"></i><i style="background:#7BC47F"></i><i style="background:#5E9BE0"></i><i style="background:#EA8DB2"></i></span></h1>
+  <p>タップで色が変わります。隣どうしを違う色に。<br>（試作版・地図はダミーです）</p>
+  <div id="list"></div>
+</div>
+
+<div id="game" class="screen">
+  <header><button id="back" aria-label="もどる">‹</button><div id="title"></div><div id="timer">0:00.0</div></header>
+  <div id="stage">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg"><g id="vp"><g id="regs"></g><path id="border"/><path id="conf"/></g></svg>
+    <div id="toast"></div>
+    <div id="clear">
+      <div id="badge"><div class="nm"></div><div class="tm"></div></div>
+      <div class="btns"><button id="b-share" class="main">共有</button><button id="b-again">もう一度</button><button id="b-list">ほかの地図</button></div>
+    </div>
+  </div>
+  <footer><label class="tog"><input type="checkbox" id="hl" checked>境界ハイライト</label><span id="left"></span></footer>
+</div>
+
+<div id="share"><div class="sh-box"><img id="sh-img" alt="共有画像"><p>画像を長押しして保存・共有できます<br>（試作版のため共有ボタンは画像表示のみ）</p><button id="sh-close">閉じる</button></div></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
