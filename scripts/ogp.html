@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!--
+  OGP 画像（public/ogp.png、1200×630）の元。MAP_JSON を public/maps/ の日本地図のファイル（file:// の絶対パス）に置き換え、
+  headless Chrome（--allow-file-access-from-files）で 1200×630 を撮る。日本地図は途中まで塗った状態にする（全部塗ると答えを見せるため）
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho:wght@700&display=block" rel="stylesheet">
+<style>
+  html,body{margin:0;width:1200px;height:630px;overflow:hidden;background:#F4F7F8;font-family:"BIZ UDPGothic",sans-serif;color:#1E2B38}
+  .outer{position:absolute;left:28px;top:28px;right:28px;bottom:28px;border:3px solid #1E2B38;background:#fff;padding:10px}
+  .inner{position:absolute;inset:10px;border:2px solid #1E2B38;
+    background-image:linear-gradient(#DCE6EB 2px,transparent 2px),linear-gradient(90deg,#DCE6EB 2px,transparent 2px);background-size:60px 60px}
+  .text{position:absolute;left:52px;top:64px;width:620px}
+  .logo{display:flex;align-items:center;gap:20px;white-space:nowrap}
+  .mark{display:grid;grid-template-columns:repeat(2,30px);gap:5px}
+  .mark i{width:30px;height:30px;border-radius:3px;display:block}
+  h1{font-family:"BIZ UDPMincho",serif;font-size:72px;font-weight:700;margin:0;letter-spacing:.06em}
+  p{font-size:32px;line-height:1.65;margin:40px 0 0}
+  .url{position:absolute;left:52px;bottom:40px;font-size:22px;color:#5C6B78;letter-spacing:.02em}
+  svg{position:absolute;right:18px;top:22px;width:620px;height:510px}
+</style>
+</head>
+<body>
+<div class="outer"><div class="inner">
+  <div class="text">
+    <div class="logo"><span class="mark"><i style="background:#F4D35E"></i><i style="background:#7EC4EA"></i><i style="background:#EE8B3A"></i><i style="background:#2F8F7A"></i></span><h1>四色ぬりわけ</h1></div>
+    <p>日本の地図を、<br>隣どうしが同じ色に<br>ならないよう 4 色で塗り分ける</p>
+  </div>
+  <div class="url">four-coloring.smooth-pudding.net</div>
+  <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
+</div></div>
+<script type="module">
+const COLORS = ["#F4D35E", "#7EC4EA", "#EE8B3A", "#2F8F7A"];
+const m = await fetch(new URL("MAP_JSON", location.href)).then((r) => r.json());
+// 途中まで塗った状態にする（全部を塗ると日本地図ステージの答えを見せることになるため）
+const PAINT = ["三重県","滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県","岐阜県","愛知県","静岡県","長野県","福井県","石川県","富山県","新潟県","鳥取県","岡山県","島根県","広島県","山梨県","神奈川県","東京都","埼玉県"];
+const idx = new Set(PAINT.map((n) => m.names.indexOf(n)));
+const adj = Array.from({ length: m.n }, () => []);
+for (const [a, b] of m.pairs) { adj[a].push(b); adj[b].push(a); }
+const col = new Array(m.n).fill(-1);
+const order = [...idx].sort((a, b) => adj[b].length - adj[a].length);
+const go = (i) => {
+  if (i === order.length) return true;
+  const v = order[i];
+  for (let c = 0; c < 4; c++) { if (adj[v].some((u) => col[u] === c)) continue; col[v] = c; if (go(i + 1)) return true; }
+  col[v] = -1; return false;
+};
+go(0);
+const [x, y, w, h] = m.box;
+const svg = document.getElementById("map");
+svg.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+let s = "";
+m.regions.forEach((r, i) => { const f = col[i] >= 0 ? COLORS[col[i]] : "#E7E3D7"; s += `<path d="${r.d}" fill="${f}" stroke="${f}" stroke-width="0.6"/>`; });
+s += `<path d="${m.border}" fill="none" stroke="#1E2B38" stroke-width="1.6" stroke-linejoin="round"/>`;
+svg.innerHTML = s;
+document.body.dataset.ready = "1";
+</script>
+</body>
+</html>
