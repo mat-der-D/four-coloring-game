@@ -17,5 +17,6 @@
 - 画面の動作確認は headless Chrome（puppeteer-core）で実際に操作して確かめる。開発時だけ、`#m番号` でステージを直接開ける。`window.__tap(k)` で地域のタップを呼べる（どちらも本番のビルドには入らない）
 - 地図の生成物（`public/maps/`、`public/thumbs/`、`src/data/stages.json`）はコミットする。配置のときに地図の加工は走らない
 - Python が必要な作業（地図データの加工）は uv を使う。`pip install` はしない
+- 長い処理を待つ・止めるときに `pgrep -f` / `pkill -f` を使わない。検索語が自分のシェルのコマンド行にも入るので、自分自身に当たる（待ち続ける・自分を止める）。待つのはタスクの完了通知かプロセス番号（`while kill -0 <PID>; do sleep 5; done`）で
 - 外部サーバーからのデータ取得は、`~/CLAUDE.md` の規則に従う（robots.txt 確認、直列・3 秒以上の間隔、申告と許可）
 - 元データは `data-raw/`（git 管理外）に置き、消さない
