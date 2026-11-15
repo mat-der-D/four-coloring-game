@@ -28,7 +28,9 @@ CACHE = ROOT / "data-raw/n03-2025/units.gpkg"
 INDEX = ROOT / "src/data/stages.json"  # ステージの一覧（名前と地域数）
 MAPS_DIR = ROOT / "public/maps"  # ステージごとの地図
 SIZE = 1000.0  # 1 ステージの長辺（画面座標）
-SIMPLIFY = 2.0  # 簡略化の許容誤差（画面座標）。初期表示で 1px 未満
+SIMPLIFY = 2.0  # 簡略化の許容誤差（画面座標）の上限。初期表示で 1px 未満
+SIMPLIFY_K = 40  # 許容誤差 = 地域の大きさ（中央値）/ SIMPLIFY_K。simplify_tol を参照
+SIMPLIFY_MIN = 0.1  # 許容誤差の下限。出力の座標は 0.1 単位に丸めるので、これより細かくしても意味がない
 MIN_ISLAND_KM2 = 0.05  # これより小さい島（実際の面積、km²）は落とす。人の住む島は残し、無人の岩は消えてよい（人間の判断、2026-11-15）
 
 
@@ -102,6 +104,19 @@ def drop_specks(deg, plane):
     keep = (km2 >= MIN_ISLAND_KM2) | (np.arange(len(dp)) == np.argmax(km2))
     kept = list(pp[keep])
     return kept[0] if len(kept) == 1 else MultiPolygon(kept)
+
+
+def simplify_tol(geoms):
+    """簡略化の許容誤差（画面座標）。ステージの範囲ではなく、プレイヤーがタップする地域の大きさで決める。
+
+    地域の大きさは sqrt(面積) の中央値。範囲だけが広いステージ（沖縄県全体は大東から与那国まで約 1000 km）で
+    一律に SIMPLIFY を使うと、数 km の市町村が三角形になる（沖縄県全体は地域の大きさ 6 に対して誤差 2）。
+    SIMPLIFY_K = 40 は、地域が画面で 100px に見えるとき誤差 2.5px。今までのふつうのステージ（地域の大きさの中央値が
+    120 前後で誤差 2、つまり 1/60）と同じくらいの細かさ。地域の大きさが 80 以上のステージは今までどおり SIMPLIFY。
+    100 にすると地図の合計が 1.8 倍、北海道全体が 890KB になる（2026-11-15 に測定）。40 で合計 1.1 倍、いちばん大きい北海道全体が 390KB。
+    """
+    med = float(np.median(np.sqrt(shapely.area(np.array(geoms, dtype=object)))))
+    return min(max(med / SIMPLIFY_K, SIMPLIFY_MIN), SIMPLIFY)
 
 
 ANCHORS = None  # 各市区町村の主な島（いちばん大きな部分と、その 1/4 以上の部分）の代表点（経緯度）。main() で入れる
@@ -202,7 +217,7 @@ def four_colorable(n, pairs):
 
 
 CACHE_DIR = ROOT / "data-raw/cache"
-BUILD_VERSION = 7  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
+BUILD_VERSION = 8  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
 ADJ_VERSION = 1  # 隣接の求め方を変えたら上げる
 
 
@@ -212,7 +227,7 @@ def build_stage(name, geoms, names=None):
     gh = hashlib.sha1(f"{ADJ_VERSION}|{SIZE}".encode())
     for g in geoms:
         gh.update(shapely.to_wkb(g))
-    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIMPLIFY}|{MIN_ISLAND_KM2}|{names}|{gh.hexdigest()}".encode())
+    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIMPLIFY}|{SIMPLIFY_K}|{SIMPLIFY_MIN}|{MIN_ISLAND_KM2}|{names}|{gh.hexdigest()}".encode())
     f = CACHE_DIR / f"{h.hexdigest()}.json"
     if f.exists():
         st = json.loads(f.read_text(encoding="utf-8"))
@@ -238,7 +253,8 @@ def build_stage_raw(name, geoms, names=None, pairs=None):
         pairs = adjacency(geoms)
     orig = geoms
     geoms = [drop_specks(d, g) for d, g in zip(deg, geoms)]
-    simp = list(shapely.coverage_simplify(np.array(geoms, dtype=object), SIMPLIFY))
+    tol = simplify_tol(geoms)
+    simp = list(shapely.coverage_simplify(np.array(geoms, dtype=object), tol))
     simp = [g if g.geom_type in ("Polygon", "MultiPolygon") else g.buffer(0) for g in simp]
     xs0, ys0, xs1, ys1 = shapely.total_bounds(frame_parts(deg, geoms))
     regions = []
@@ -247,15 +263,15 @@ def build_stage_raw(name, geoms, names=None, pairs=None):
         regions.append({"d": path_of_polygons(g), "c": [round(rp.x, 1), round(rp.y, 1)]})
     pair_out, empty = [], 0
     for a, b in pairs:
-        sh = simp[a].boundary.intersection(simp[b].buffer(0.3))
+        sh = simp[a].boundary.intersection(simp[b].buffer(0.15 * tol))  # 0.15 * tol は、tol = 2 のとき今までの 0.3
         d = path_of_lines(sh)
         if d == "":  # 簡略化や小島の除去で接する線が消えたときは、元の形から取る
-            d = path_of_lines(orig[a].boundary.intersection(orig[b].buffer(0.004)).simplify(SIMPLIFY))
+            d = path_of_lines(orig[a].boundary.intersection(orig[b].buffer(0.004)).simplify(tol))
         empty += d == ""
         pair_out.append([a, b, d])
     border = path_of_lines(unary_union([g.boundary for g in simp]))
     sol = four_colorable(len(simp), pairs)
-    print(f"  {name}: 地域 {len(simp)} / 隣接 {len(pairs)} / 4色 {'OK' if sol else '見つからず'} / 線なし {empty} / {len(border) // 1000}KB", flush=True)
+    print(f"  {name}: 地域 {len(simp)} / 隣接 {len(pairs)} / 4色 {'OK' if sol else '見つからず'} / 許容誤差 {tol:.2f} / 線なし {empty} / {len(border) // 1000}KB", flush=True)
     return {
         "name": name,
         "n": len(simp),
