@@ -10,11 +10,12 @@ const SVGNS = "http://www.w3.org/2000/svg";
 // 一覧（地方 -> 都道府県 -> ステージ）は src/data/stages.json。地図そのものはステージを選んだときに読む
 let selPref = null; // 都道府県の一覧を開いているときはその県
 const short = (name) => (name === "北海道" ? name : name.replace(/[都府県]$/, ""));
-function stageButton(s, label) {
+function stageButton(s, label, cls) {
   const i = STAGES.indexOf(s) >= 0 ? STAGES.indexOf(s) : STAGES.push(s) - 1;
   const b = document.createElement("button");
-  b.className = "stage";
-  b.innerHTML = `<span>${label}</span><span class="n">${s.n}</span>`;
+  b.className = "stage" + (cls ? " " + cls : "");
+  // 地域の数はステージの規模を表すので、数字を大きく見せる
+  b.innerHTML = `<span>${label}</span><span class="n"><b>${s.n}</b>地域</span>`;
   b.onclick = () => start(i);
   return b;
 }
@@ -50,8 +51,8 @@ function renderPref(p) {
   $("sel-head").hidden = true; $("pref-head").hidden = false;
   $("pref-name").textContent = p.name;
   // 分けていない県は、ステージが県全体の 1 つだけ
-  for (const s of p.stages) list.appendChild(stageButton(s, s.name === p.name ? `${p.name}全体` : s.name.replace(p.name + " ", "")));
-  if (p.whole) list.appendChild(stageButton(p.whole, `${p.name}全体`));
+  for (const s of p.stages) list.appendChild(s.name === p.name ? stageButton(s, `${p.name}全体`, "whole") : stageButton(s, s.name.replace(p.name + " ", "")));
+  if (p.whole) list.appendChild(stageButton(p.whole, `${p.name}全体`, "whole"));
   $("sel").scrollTop = 0;
 }
 $("pref-back").onclick = renderTop;

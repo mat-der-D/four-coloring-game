@@ -10,7 +10,8 @@
   .dots{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}
   .dots i{width:10px;height:10px;border-radius:50%;display:block}
   .stage{display:flex;align-items:center;justify-content:space-between;width:100%;padding:16px 18px;margin-bottom:10px;border:1px solid #e3dfd4;border-radius:14px;background:#fff;font-size:17px;color:var(--ink);cursor:pointer}
-  .stage .n{color:var(--sub);font-size:15px;font-variant-numeric:tabular-nums}
+  .stage .n{display:inline-flex;align-items:baseline;justify-content:center;min-width:5.6em;gap:3px;flex:none;margin-left:12px;padding:4px 11px;border-radius:999px;background:var(--paper);color:var(--sub);font-size:12px;font-variant-numeric:tabular-nums}
+  .stage .n b{font-size:21px;font-weight:700;color:var(--ink);line-height:1.1}
   /* game */
   header{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #ebe7dd;background:var(--bg);z-index:2}
   header button{border:none;background:none;font-size:22px;padding:4px 8px;cursor:pointer;color:var(--ink)}
@@ -60,3 +61,8 @@
 #pref-head[hidden],#sel-head[hidden]{display:none}
 .stage.block-start{margin:22px 0 8px;padding:18px 18px;font-size:19px;background:var(--paper);border-color:#d8d3c7}
 .stage.block-start b{font-weight:700}
+/* 県全体: 部分のステージと区別する */
+.stage.whole{margin-top:16px;background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.stage.whole .n{background:rgba(255,255,255,.14);color:rgba(255,255,255,.75)}
+.stage.whole .n b{color:#fff}
+.stage.block-start .n{background:#fff}
