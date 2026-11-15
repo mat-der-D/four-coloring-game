@@ -1,5 +1,5 @@
 import "./style.css";
-import DATA from "./data/dummy-maps.json";
+import DATA from "./data/real-maps.json";
 const STAGES = [];
 const COLORS = ["#F2C14E","#7BC47F","#5E9BE0","#EA8DB2"];
 const BLANK = "#ece8de";
@@ -33,7 +33,7 @@ DATA.chiiki.forEach(({ pref, stages }) => {
   $("list").appendChild(grp);
 });
 addSection("全国", "47都道府県");
-addStage(DATA.zenkoku, "日本地図（ダミー）");
+addStage(DATA.zenkoku);
 
 // ---------- game state ----------
 let S, color, adj, pairD, conflicts, t0, timerId, done, view;
@@ -192,3 +192,7 @@ async function share() {
   $("sh-img").src = url; $("share").classList.add("on");
 }
 $("share").onclick = (e) => { if (e.target.id === "share" || e.target.id === "sh-close") $("share").classList.remove("on"); };
+
+// 開発用: URL の #番号 でステージを直接開く（例 http://localhost:5173/#7）
+const hashStage = Number(location.hash.slice(1));
+if (location.hash && hashStage >= 0 && hashStage < STAGES.length) start(hashStage);
