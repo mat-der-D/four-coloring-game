@@ -51,7 +51,6 @@
 #list > .stage{margin-bottom:6px}
 .block{display:flex;align-items:center;justify-content:space-between;margin:22px 0 8px;gap:10px}
 .block .bname{font-size:17px;font-weight:700}
-.stage.mini{width:auto;padding:7px 12px;margin:0;font-size:13px;gap:8px;border-radius:10px}
 .prefs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .pref{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:11px 2px;border:1px solid #e3dfd4;border-radius:10px;background:#fff;font-size:15px;color:var(--ink);cursor:pointer}
 .pref small{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
@@ -59,3 +58,5 @@
 #pref-head h2{margin:0;font-size:22px}
 #pref-back{border:none;background:none;font-size:26px;padding:0 10px 0 0;cursor:pointer;color:var(--ink)}
 #pref-head[hidden],#sel-head[hidden]{display:none}
+.stage.block-start{margin:22px 0 8px;padding:18px 18px;font-size:19px;background:var(--paper);border-color:#d8d3c7}
+.stage.block-start b{font-weight:700}

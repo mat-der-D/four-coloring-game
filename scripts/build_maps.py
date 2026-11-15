@@ -280,7 +280,7 @@ def main():
             # 案: 振興局ごと（データの N03_002）。政令市（札幌）は他と同じ振興局に入るので市で 1 つ
             hc = city[(city.N03_001 == "北海道") & ~is_undetermined(city)]
             stages = [build_stage(f"北海道 {k}", g.geometry, list(g.N03_004)) for k, g in hc.groupby("N03_002", sort=False)]
-            return {"name": pref_name, "stages": stages, "whole": None}
+            return {"name": pref_name, "stages": stages, "whole": build_stage("北海道", hc.geometry, list(hc.N03_004))}
         cu = city[(city.N03_001 == pref_name) & ~is_undetermined(city)]
         if len(cu) > MAX_UNSPLIT:
             raise SystemExit(f"{pref_name}: {len(cu)} 市区町村あるのに対応表（scripts/areas.py）が無い")
@@ -290,7 +290,11 @@ def main():
     for bname, prefs in BLOCKS.items():
         members = BLOCK_STAGE.get(bname, prefs)
         stage = None
-        if len(members) > 1:
+        if bname == "北海道":
+            # 北海道は 1 道だけなので、地方の入口は振興局で分けた北海道全体にする
+            hk = merge_by(ward[(ward.N03_001 == "北海道") & ~is_undetermined(ward)], ["N03_002"])
+            stage = build_stage("北海道（振興局）", hk.geometry, list(hk.N03_002))
+        elif len(members) > 1:
             sel = pref[pref.N03_001.isin(members)]
             stage = build_stage(f"{BLOCK_STAGE_NAME.get(bname, bname)}地方", sel.geometry, list(sel.N03_001))
         blocks.append({"name": bname, "stage": stage, "prefs": [pref_stages(p) for p in prefs]})

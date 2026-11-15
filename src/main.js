@@ -24,19 +24,21 @@ function renderTop() {
   $("sel-head").hidden = false; $("pref-head").hidden = true;
   list.appendChild(stageButton(DATA.zenkoku, "日本地図（47都道府県）"));
   for (const b of DATA.blocks) {
-    const h = document.createElement("div"); h.className = "block";
-    h.innerHTML = `<span class="bname">${b.name}</span>`;
+    // 地方のステージが、その地方の入口。見出しを兼ねた大きなボタンにする
     if (b.stage) {
-      const bb = stageButton(b.stage, b.stage.name); bb.classList.add("mini");
-      h.appendChild(bb);
+      const bb = stageButton(b.stage, `<b>${b.stage.name}</b>`);
+      bb.classList.add("block-start");
+      list.appendChild(bb);
+    } else {
+      const h = document.createElement("div"); h.className = "block";
+      h.innerHTML = `<span class="bname">${b.name}</span>`;
+      list.appendChild(h);
     }
-    list.appendChild(h);
     const grid = document.createElement("div"); grid.className = "prefs";
     for (const p of b.prefs) {
-      const n = p.stages.length + (p.whole ? 1 : 0);
       const btn = document.createElement("button"); btn.className = "pref";
       btn.textContent = short(p.name);
-      btn.onclick = () => (n === 1 ? start(STAGES.indexOf(p.stages[0]) >= 0 ? STAGES.indexOf(p.stages[0]) : STAGES.push(p.stages[0]) - 1) : renderPref(p));
+      btn.onclick = () => renderPref(p);
       grid.appendChild(btn);
     }
     list.appendChild(grid);
@@ -47,7 +49,8 @@ function renderPref(p) {
   const list = $("list"); list.innerHTML = "";
   $("sel-head").hidden = true; $("pref-head").hidden = false;
   $("pref-name").textContent = p.name;
-  for (const s of p.stages) list.appendChild(stageButton(s, s.name.replace(p.name + " ", "")));
+  // 分けていない県は、ステージが県全体の 1 つだけ
+  for (const s of p.stages) list.appendChild(stageButton(s, s.name === p.name ? `${p.name}全体` : s.name.replace(p.name + " ", "")));
   if (p.whole) list.appendChild(stageButton(p.whole, `${p.name}全体`));
   $("sel").scrollTop = 0;
 }
