@@ -149,7 +149,6 @@ svg.th{display:block}
 .sns a:active,.acts3 button:active{background:var(--paper)}
 .sns a svg{display:block;width:26px;height:26px}
 .acts3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.acts3 button{padding:11px 0 9px;border:1.5px solid var(--ink);background:#fff;border-radius:4px;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px}
-.acts3 button small{font-size:10px;font-weight:400;color:var(--sub)}
+.acts3 button{padding:13px 0;border:1.5px solid var(--ink);background:#fff;border-radius:4px;font-size:13px;font-weight:700}
 .sh-toast{position:absolute;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(30,43,56,.92);color:#fff;font-size:13px;padding:8px 14px;border-radius:18px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 .sh-toast.on{opacity:1}

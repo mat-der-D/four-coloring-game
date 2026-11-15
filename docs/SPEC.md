@@ -30,7 +30,7 @@
   - 文面は「短く」: `愛知県 名古屋市を 1:12.4 で塗り分けた！ #四色ぬりわけ` ＋ゲームの URL
   - 画像の保存・画像のコピー・文面のコピーを用意する（人間の指示）。端末の共有機能が使えない環境では押せない表示にして、ほかの方法を案内する
   - SNS のボタンが渡せるのは文面と URL だけ（画像は渡せない）。並べるのは X・LINE・Bluesky・Misskey・Mastodon（人間の決定）。Misskey は misskey-hub.net/share、Mastodon は share.joinmastodon.org（どちらも公式の中継ページで、利用者が自分のサーバーを選ぶ）
-  - 実機の確認（2026-11-15、開発用の環境 https://four-coloring-game-dev.smooth-pudding-1017.workers.dev/ で）: Android で「画像つきで共有」→ X は画像が添付された状態で開いた（文面が入ったかは確認中）。「X」のボタンは画像なし（仕様どおり）。iPhone は未確認
+  - 実機の確認（2026-11-15、開発用の環境 https://four-coloring-game-dev.smooth-pudding-1017.workers.dev/ で）: Android で「画像つきで共有」→ X は、画像が添付され、URL も入った状態で開いた。「X」のボタンは画像なし（仕様どおり）。iPhone は未確認
   - リンクのプレビュー画像（OGP）は保留（人間の判断）。案: A 固定 1 枚 / B ステージごと（ビルド時に作る）/ C 結果ごと（Worker が必要）
 - 未決: 「まるごと」の上限（人間があとで考える）、北海道（振興局が有力）、北方領土の 6 村、離島の配置、所属未定地
 
