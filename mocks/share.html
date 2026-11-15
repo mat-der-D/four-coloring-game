@@ -114,7 +114,8 @@
 </div>
 
 <script type="module">
-import { drawShareImage, toBlob, stageTitle, TEXTS, SNS } from "/src/share.js";
+import { drawShareImage, toBlob, stageTitle, shareText, SNS } from "/src/share.js";
+const TEXTS = { short: shareText }; // 文面は「短く」に決まった
 
 const $ = (id) => document.getElementById(id);
 const solve = (m) => {
@@ -170,13 +171,13 @@ const blob = await toBlob(await drawShareImage(m, fills, time));
 $("pv-img").src = URL.createObjectURL(blob);
 const file = new File([blob], "nuriwake.png", { type: "image/png" });
 
-const TAB = { short: "短く", record: "記録ふう", explain: "説明つき" };
+const TAB = { short: "短く（採用）" };
 let cur = "short";
 const textNow = () => TEXTS[cur](ctx);
 function renderText() {
   $("msg").innerHTML = textNow().replace(/&/g, "&amp;").replace(/</g, "&lt;") + `\n<u>${url}</u>`;
   $("tabs").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.k === cur));
-  $("sns").innerHTML = SNS.map((s) => `<a href="${s.href(textNow(), url)}" target="_blank" rel="noopener"><i style="background:${{ x: "#111", line: "#06C755", threads: "#111", bluesky: "#1185FE", facebook: "#1877F2" }[s.id]}">${{ x: "𝕏", line: "L", threads: "@", bluesky: "b", facebook: "f" }[s.id]}</i>${s.label}</a>`).join("");
+  $("sns").innerHTML = SNS.map((s) => `<a href="${s.href(textNow(), url)}" target="_blank" rel="noopener"><i style="background:${s.bg}">${s.mark}</i>${s.label}</a>`).join("");
 }
 $("tabs").innerHTML = Object.entries(TAB).map(([k, v]) => `<button data-k="${k}">${v}</button>`).join("");
 $("tabs").onclick = (e) => { if (e.target.dataset.k) { cur = e.target.dataset.k; renderText(); } };

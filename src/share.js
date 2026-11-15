@@ -105,19 +105,16 @@ export const toBlob = (cv) => new Promise((res) => cv.toBlob(res, "image/png"));
 // ---------- 共有の文面 ----------
 export const stageTitle = (stage) => parts(stage).filter(Boolean).join(" ");
 
-// 文面の候補（モックで比べるため複数持つ。決まったら 1 つにする）
-export const TEXTS = {
-  short: ({ title, time }) => `${title}を ${time} で塗り分けた！\n#四色ぬりわけ`,
-  record: ({ title, time, n }) => `【四色ぬりわけ】${title}（${n} 地域）を ${time}`,
-  explain: ({ title, time, n }) => `${title}の ${n} 地域を、隣どうし違う色に塗り分けました。タイムは ${time}。\n#四色ぬりわけ`,
-};
+// 文面（人間が「短く」を選んだ）。URL は別に付ける
+export const shareText = ({ title, time }) => `${title}を ${time} で塗り分けた！\n#四色ぬりわけ`;
 
 // ---------- SNS の投稿画面 ----------
 // どれも渡せるのは文面と URL だけ（画像は渡せない）。画像付きで投稿するには、端末の共有か、画像の保存・コピーが要る
 export const SNS = [
-  { id: "x", label: "X", href: (text, url) => `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
-  { id: "line", label: "LINE", href: (text, url) => `https://line.me/R/share?text=${encodeURIComponent(text + "\n" + url)}` },
-  { id: "threads", label: "Threads", href: (text, url) => `https://www.threads.net/intent/post?text=${encodeURIComponent(text + "\n" + url)}` },
-  { id: "bluesky", label: "Bluesky", href: (text, url) => `https://bsky.app/intent/compose?text=${encodeURIComponent(text + "\n" + url)}` },
-  { id: "facebook", label: "Facebook", href: (_text, url) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}` },
+  { id: "x", label: "X", mark: "𝕏", bg: "#111", href: (text, url) => `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
+  { id: "line", label: "LINE", mark: "L", bg: "#06C755", href: (text, url) => `https://line.me/R/share?text=${encodeURIComponent(text + "\n" + url)}` },
+  { id: "bluesky", label: "Bluesky", mark: "b", bg: "#1185FE", href: (text, url) => `https://bsky.app/intent/compose?text=${encodeURIComponent(text + "\n" + url)}` },
+  // Misskey と Mastodon はサーバーが利用者ごとに違う。公式の中継ページで、利用者が自分のサーバーを選ぶ
+  { id: "misskey", label: "Misskey", mark: "M", bg: "#86B300", href: (text, url) => `https://misskey-hub.net/share?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
+  { id: "mastodon", label: "Mastodon", mark: "m", bg: "#6364FF", href: (text, url) => `https://share.joinmastodon.org/?text=${encodeURIComponent(text + "\n" + url)}` },
 ];

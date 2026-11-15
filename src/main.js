@@ -2,7 +2,7 @@ import "./style.css";
 // 一覧（地方 -> 都道府県 -> ステージ）。地図そのものはステージを選んだときに public/maps/ から読む
 import DATA from "./data/stages.json";
 import { COLORS, BLANK, INK, CONF, parts, patternDefs, mapSVG, unitsPerPx } from "./render.js";
-import { drawShareImage, toBlob, stageTitle, TEXTS } from "./share.js";
+import { drawShareImage, toBlob, stageTitle, shareText, SNS } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
 const BASE = import.meta.env.BASE_URL;
@@ -319,19 +319,54 @@ $("b-list").onclick = backToList;
 $("b-again").onclick = () => start(S);
 $("b-share").onclick = share;
 
-// ---------- 共有: 画像（地図・ステージ名・タイムだけ）と文面 ----------
+// ---------- 共有シート: 画像（地図・ステージ名・タイムだけ）と文面 ----------
+// SNS のボタンが渡せるのは文面と URL だけ。画像つきで投稿するには、端末の共有か、画像の保存・コピーを使う
+let shared = null; // { key, blob, file, text } クリアごとに 1 回作る
 async function share() {
-  const blob = await toBlob(await drawShareImage(S, color, lastTime));
-  const file = new File([blob], "nuriwake.png", { type: "image/png" });
-  const text = TEXTS.short({ title: stageTitle(S), time: lastTime, n: S.n });
+  const key = S.file + "|" + lastTime;
+  if (shared?.key !== key) {
+    const blob = await toBlob(await drawShareImage(S, color, lastTime));
+    shared = { key, blob, file: new File([blob], "yonshoku-nuriwake.png", { type: "image/png" }), text: shareText({ title: stageTitle(S), time: lastTime }) };
+    $("sh-img").src = URL.createObjectURL(blob);
+  }
   const url = location.origin + BASE;
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text, url }); return; }
-  } catch (err) { if (err && err.name === "AbortError") return; }
-  $("sh-img").src = URL.createObjectURL(blob);
-  $("share").classList.add("on");
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  $("sh-msg").innerHTML = `${esc(shared.text)}\n<u>${esc(url)}</u>`;
+  $("sh-sns").innerHTML = SNS.map((s) => `<a href="${s.href(shared.text, url)}" target="_blank" rel="noopener"><i style="background:${s.bg}">${s.mark}</i>${s.label}</a>`).join("");
+  const can = !!(navigator.canShare && navigator.canShare({ files: [shared.file] }));
+  $("sh-native").disabled = !can;
+  $("sh-hint").textContent = can
+    ? "X・LINE・Instagram などのアプリに、画像と文面をまとめて渡せます。"
+    : "この環境では端末の共有機能が使えません。下の方法で共有してください。";
+  const w = $("share");
+  w.classList.add("on"); w.setAttribute("aria-hidden", "false");
+  requestAnimationFrame(() => w.classList.add("show"));
 }
-$("share").onclick = (e) => { if (e.target.id === "share" || e.target.id === "sh-close") $("share").classList.remove("on"); };
+function closeShare() {
+  const w = $("share");
+  w.classList.remove("show"); w.setAttribute("aria-hidden", "true");
+  setTimeout(() => w.classList.remove("on"), 250);
+}
+$("share").onclick = (e) => { if (e.target.id === "share" || e.target.id === "sh-close") closeShare(); };
+let shToastT;
+function shToast(msg) { const t = $("sh-toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(shToastT); shToastT = setTimeout(() => t.classList.remove("on"), 1600); }
+$("sh-native").onclick = async () => {
+  try { await navigator.share({ files: [shared.file], text: shared.text, url: location.origin + BASE }); }
+  catch (err) { if (err?.name !== "AbortError") shToast("共有できませんでした"); }
+};
+$("sh-save").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(shared.blob); a.download = shared.file.name; a.click();
+  shToast("画像を保存しました");
+};
+$("sh-copyimg").onclick = async () => {
+  try { await navigator.clipboard.write([new ClipboardItem({ "image/png": shared.blob })]); shToast("画像をコピーしました"); }
+  catch { shToast("この環境では画像をコピーできません"); }
+};
+$("sh-copytxt").onclick = async () => {
+  try { await navigator.clipboard.writeText(shared.text + "\n" + location.origin + BASE); shToast("文面をコピーしました"); }
+  catch { shToast("コピーできませんでした"); }
+};
 
 // 開発用: URL の #m番号 で地図ファイル（public/maps/番号.json）のステージを直接開く（例 #m138）
 {
