@@ -7,3 +7,4 @@ __pycache__/
 # 国土数値情報などの元データ（再配布せず、取得手順を docs に残す）
 data-raw/
 .wrangler/
+.claude/worktrees/
