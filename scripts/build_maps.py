@@ -29,7 +29,7 @@ INDEX = ROOT / "src/data/stages.json"  # ステージの一覧（名前と地域
 MAPS_DIR = ROOT / "public/maps"  # ステージごとの地図
 SIZE = 1000.0  # 1 ステージの長辺（画面座標）
 SIMPLIFY = 2.0  # 簡略化の許容誤差（画面座標）。初期表示で 1px 未満
-SPECK = 6.0  # これより小さい島（面積、画面座標）は落とす
+MIN_ISLAND_KM2 = 0.05  # これより小さい島（実際の面積、km²）は落とす。人の住む島は残し、無人の岩は消えてよい（人間の判断、2026-11-15）
 
 
 # ---------- 束ねる ----------
@@ -50,6 +50,12 @@ def merge_by(u: gpd.GeoDataFrame, keys) -> gpd.GeoDataFrame:
 # ---------- ステージを作る ----------
 def to_plane(geoms):
     """経緯度 -> 平面（緯度で経度を縮める）。長辺が SIZE になるように拡大する。"""
+    f = plane_fn(geoms)
+    return [shapely.transform(g, f) for g in geoms]
+
+
+def plane_fn(geoms):
+    """to_plane の座標変換（geoms の範囲で決まる）。"""
     allb = shapely.total_bounds(geoms)
     lat0 = (allb[1] + allb[3]) / 2
     cx = math.cos(math.radians(lat0))
@@ -59,7 +65,7 @@ def to_plane(geoms):
     def f(xy):
         return np.column_stack([(xy[:, 0] - allb[0]) * cx * s, (allb[3] - xy[:, 1]) * s])
 
-    return [shapely.transform(g, f) for g in geoms]
+    return f
 
 
 def adjacency(geoms):
@@ -82,8 +88,57 @@ def adjacency(geoms):
     return pairs
 
 
-def drop_specks(g, min_area=SPECK):
-    """画面で見えないほど小さい島を落とす（最大の部分は必ず残す）。"""
+def drop_specks(deg, plane):
+    """実際の面積が MIN_ISLAND_KM2 より小さい島を落とす（最大の部分は必ず残す）。
+
+    deg は経緯度の形、plane は同じ形を to_plane で平面に落としたもの（部分の並びが同じ）。
+    判定は deg の面積で行い、plane の部分を返す。ステージの縮尺には左右されないので、
+    日本地図や地方のような粗いステージでも、人の住む島は拡大すれば見える。
+    面積は度の面積を km² に直した近似（111.32² × cos(緯度)）。
+    """
+    dp = shapely.get_parts(deg)
+    pp = shapely.get_parts(plane)
+    km2 = shapely.area(dp) * 111.32**2 * np.cos(np.radians(shapely.get_y(shapely.centroid(dp))))
+    keep = (km2 >= MIN_ISLAND_KM2) | (np.arange(len(dp)) == np.argmax(km2))
+    kept = list(pp[keep])
+    return kept[0] if len(kept) == 1 else MultiPolygon(kept)
+
+
+ANCHORS = None  # 各市区町村の主な島（いちばん大きな部分と、その 1/4 以上の部分）の代表点（経緯度）。main() で入れる
+MAIN_PART_RATIO = 0.25  # 小笠原村は硫黄島がいちばん大きく、父島（0.78）・母島（0.67）が続く。南鳥島は 0.05
+
+
+def set_anchors(units):
+    global ANCHORS
+    pts = []
+    for g in units.geometry:
+        parts = shapely.get_parts(g)
+        a = shapely.area(parts)
+        pts += [p.representative_point() for p in parts[a >= MAIN_PART_RATIO * a.max()]]
+    ANCHORS = shapely.MultiPoint(pts)
+
+
+def frame_parts(deg, plane):
+    """表示の枠（最初に見える範囲）を決める部分。地域ごとに、どこかの市区町村の主な島（ANCHORS）を含む部分と、地域のいちばん大きな部分。
+
+    deg は経緯度の形（to_plane の範囲を決めたもの）、plane は平面に落とした形（小島を落としたあとでもよい）。
+    遠くの小島（南鳥島・竹島など、市町村の一部）はデータに残って拡大すれば見えるが、枠を広げない。
+    島だけの市町村（小笠原村、北方領土の村など）や、県・振興局にまとめた地域の中の島の市町村（宮古島市など）は枠に入る。
+    地域を 1 つの塊として「いちばん大きな部分」だけを見ると、日本地図の沖縄県から先島が外れるので、市区町村ごとに見る。
+    """
+    pts = shapely.get_parts(shapely.transform(ANCHORS, plane_fn(list(deg))))
+    out = []
+    for g in plane:
+        parts = shapely.get_parts(g)
+        big = np.arange(len(parts)) == np.argmax(shapely.area(parts))
+        hit = np.zeros(len(parts), bool)
+        hit[STRtree(parts).query(pts, predicate="within")[1]] = True
+        out.append(shapely.multipolygons(parts[big | hit]))
+    return out
+
+
+def drop_tiny(g, min_area):
+    """面積（画面座標）が min_area より小さい部分を落とす（最大の部分は必ず残す）。サムネイル用。"""
     parts = list(g.geoms) if isinstance(g, MultiPolygon) else [g]
     big = max(parts, key=lambda p: p.area)
     keep = [p for p in parts if p.area >= min_area or p is big]
@@ -147,8 +202,8 @@ def four_colorable(n, pairs):
 
 
 CACHE_DIR = ROOT / "data-raw/cache"
-BUILD_VERSION = 3
-ADJ_VERSION = 1  # 隣接の求め方を変えたら上げる  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
+BUILD_VERSION = 7  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
+ADJ_VERSION = 1  # 隣接の求め方を変えたら上げる
 
 
 def build_stage(name, geoms, names=None):
@@ -157,7 +212,7 @@ def build_stage(name, geoms, names=None):
     gh = hashlib.sha1(f"{ADJ_VERSION}|{SIZE}".encode())
     for g in geoms:
         gh.update(shapely.to_wkb(g))
-    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIMPLIFY}|{SPECK}|{names}|{gh.hexdigest()}".encode())
+    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIMPLIFY}|{MIN_ISLAND_KM2}|{names}|{gh.hexdigest()}".encode())
     f = CACHE_DIR / f"{h.hexdigest()}.json"
     if f.exists():
         st = json.loads(f.read_text(encoding="utf-8"))
@@ -177,14 +232,15 @@ def build_stage(name, geoms, names=None):
 
 
 def build_stage_raw(name, geoms, names=None, pairs=None):
+    deg = geoms
     geoms = to_plane(geoms)
     if pairs is None:
         pairs = adjacency(geoms)
     orig = geoms
-    geoms = [drop_specks(g) for g in geoms]
+    geoms = [drop_specks(d, g) for d, g in zip(deg, geoms)]
     simp = list(shapely.coverage_simplify(np.array(geoms, dtype=object), SIMPLIFY))
     simp = [g if g.geom_type in ("Polygon", "MultiPolygon") else g.buffer(0) for g in simp]
-    xs0, ys0, xs1, ys1 = shapely.total_bounds(simp)
+    xs0, ys0, xs1, ys1 = shapely.total_bounds(frame_parts(deg, geoms))
     regions = []
     for g in simp:
         rp = g.representative_point()
@@ -283,9 +339,9 @@ def ipath_lines(g):
     return "".join(out)
 
 
-def main_box(geoms, pad=0.04):
-    """サムネイルの表示範囲。離島も含めた地図全体（ゲーム画面で塗る地図と同じ範囲にする。人間の判断、2026-11-15）。"""
-    return box_list(*shapely.total_bounds(geoms), pad)
+def main_box(frames, pad=0.04):
+    """サムネイルの表示範囲。ゲーム画面の最初の枠と同じ決め方（frame_parts）。frames は thumb_geoms が返す枠の部分。"""
+    return box_list(*shapely.total_bounds(frames), pad)
 
 
 def box_list(x0, y0, x1, y1, pad=0.04):
@@ -294,29 +350,34 @@ def box_list(x0, y0, x1, y1, pad=0.04):
 
 
 def thumb_geoms(geoms, rel):
-    """簡略化の強さは、本土の表示範囲の大きさに対する割合（rel）で決める。範囲を拡大しても角ばらないように。"""
-    P = to_plane(list(geoms))
-    mb = main_box(P)
+    """サムネイルの形と、表示範囲を決める部分（ゲーム画面と同じく、小島を落としたあとの frame_parts）。
+
+    簡略化の強さは、表示範囲の大きさに対する割合（rel）で決める。範囲を拡大しても角ばらないように。
+    """
+    deg = list(geoms)
+    P = [drop_specks(d, g) for d, g in zip(deg, to_plane(deg))]
+    F = frame_parts(deg, P)
+    mb = main_box(F)
     tol = rel * max(mb[2], mb[3])
-    P = [drop_specks(g, tol * tol) for g in P]
-    return list(shapely.coverage_simplify(np.array(P, dtype=object), tol))
+    P = [drop_tiny(g, tol * tol) for g in P]  # サムネイルは拡大しないので、画面で見えない島は落とす
+    return list(shapely.coverage_simplify(np.array(P, dtype=object), tol)), F
 
 
 def thumb(geoms, rel=0.004):
-    """地図の輪郭（陸と境界線）と、本土に寄せた表示範囲。"""
-    S = thumb_geoms(geoms, rel)
-    return {"vb": main_box(S), "land": "".join(ipath_polys(g) for g in S), "lines": ipath_lines(unary_union([g.boundary for g in S]))}
+    """地図の輪郭（陸と境界線）と、ゲーム画面の最初の枠と同じ表示範囲。"""
+    S, F = thumb_geoms(geoms, rel)
+    return {"vb": main_box(F), "land": "".join(ipath_polys(g) for g in S), "lines": ipath_lines(unary_union([g.boundary for g in S]))}
 
 
 def thumb_pref(geoms, masks, rel=0.004):
     """県全体の輪郭と、ステージごとに強調する部分。masks はステージごとの「どの市町村が入るか」。"""
-    S = thumb_geoms(geoms, rel)
-    t = {"vb": main_box(S), "land": "".join(ipath_polys(g) for g in S), "lines": ipath_lines(unary_union([g.boundary for g in S])), "parts": []}
+    S, F = thumb_geoms(geoms, rel)
+    t = {"vb": main_box(F), "land": "".join(ipath_polys(g) for g in S), "lines": ipath_lines(unary_union([g.boundary for g in S])), "parts": []}
     mb = t["vb"]
     for m in masks:
         sel = [g for g, on in zip(S, m) if on]
-        x0, y0, x1, y1 = shapely.total_bounds(sel)
-        # 強調する部分が本土の範囲の外（離島）にあるときは、範囲を広げて見えるようにする
+        x0, y0, x1, y1 = shapely.total_bounds([f for f, on in zip(F, m) if on])
+        # 強調する部分が県の範囲の外（離島）にあるときは、範囲を広げて見えるようにする
         x0, y0 = min(x0, mb[0]), min(y0, mb[1])
         x1, y1 = max(x1, mb[0] + mb[2]), max(y1, mb[1] + mb[3])
         t["parts"].append({"d": "".join(ipath_polys(g) for g in sel), "vb": box_list(x0, y0, x1, y1, 0.02)})
@@ -331,6 +392,7 @@ def main():
     from areas import AREAS
 
     ward = load_units()  # 区ごと（コード単位）
+    set_anchors(ward[ward.N03_004 != "所属未定地"])  # 表示の枠を決める点（frame_parts）
     city = merge_by(ward, ["N03_001", "N03_003", "N03_004"])  # 政令市は市でまとめる
     is_undetermined = lambda d: d["N03_004"] == "所属未定地"
     pref = merge_by(ward[~is_undetermined(ward)], ["N03_001"])
