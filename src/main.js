@@ -1,22 +1,13 @@
 import "./style.css";
 // 一覧（地方 -> 都道府県 -> ステージ）。地図そのものはステージを選んだときに public/maps/ から読む
 import DATA from "./data/stages.json";
+import { COLORS, BLANK, INK, CONF, parts, patternDefs, mapSVG, unitsPerPx } from "./render.js";
+import { drawShareImage, toBlob, stageTitle, TEXTS } from "./share.js";
 
-const COLORS = ["#F4D35E", "#7EC4EA", "#EE8B3A", "#2F8F7A"]; // 黄・水色・橙・緑。赤は「同じ色の隣りあい」専用
-const BLANK = "#E7E3D7";
-const INK = "#1E2B38";
-const CONF = "#D7263D";
 const $ = (id) => document.getElementById(id);
 const BASE = import.meta.env.BASE_URL;
 const fmt = (ms) => { const s = ms / 1000; return Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0"); };
 const short = (name) => (name === "北海道" ? name : name.replace(/[都府県]$/, ""));
-// 「愛知県 名古屋市」-> ["愛知県", "名古屋市"]。県全体（「愛知県」）は「愛知県全体」と出す
-function parts(s) {
-  const i = s.name.indexOf(" ");
-  if (i > 0) return [s.name.slice(0, i), s.name.slice(i + 1)];
-  if (s.isWhole) return ["", `${s.name}全体`];
-  return ["", s.name];
-}
 // 地域数: 大きな数字と縮尺バー（長さは地域数の対数）
 const count = (n) => `<span class="cnt"><span class="v num">${n}<small>地域</small></span>` +
   `<span class="scale" style="width:${Math.round(14 + 66 * Math.log(Math.max(n, 2)) / Math.log(200))}px"></span></span>`;
@@ -103,17 +94,6 @@ async function renderPref(p, b) {
 $("pref-back").onclick = () => { selPref = null; show("sel"); };
 renderTop();
 
-// ---------- 塗りの模様 ----------
-// 色だけに頼らないための目印（黄: なし／水色: 点／橙: 斜線／緑: 格子）。
-// u は「画面の 1px が地図の何単位か」。拡大しても、画面上の模様の細かさを保つ
-function patternDefs(id, u) {
-  const sz = (v) => (v * u).toFixed(4);
-  const ink = "rgba(30,43,56,.24)", wh = "rgba(255,255,255,.36)";
-  return `<pattern id="${id}0" patternUnits="userSpaceOnUse" width="${sz(8)}" height="${sz(8)}"><rect width="${sz(8)}" height="${sz(8)}" fill="${COLORS[0]}"/></pattern>` +
-    `<pattern id="${id}1" patternUnits="userSpaceOnUse" width="${sz(7)}" height="${sz(7)}"><rect width="${sz(7)}" height="${sz(7)}" fill="${COLORS[1]}"/><circle cx="${sz(3.5)}" cy="${sz(3.5)}" r="${sz(1.15)}" fill="${ink}"/></pattern>` +
-    `<pattern id="${id}2" patternUnits="userSpaceOnUse" width="${sz(6)}" height="${sz(6)}" patternTransform="rotate(45)"><rect width="${sz(6)}" height="${sz(6)}" fill="${COLORS[2]}"/><rect width="${sz(1.3)}" height="${sz(6)}" fill="${ink}"/></pattern>` +
-    `<pattern id="${id}3" patternUnits="userSpaceOnUse" width="${sz(8)}" height="${sz(8)}"><rect width="${sz(8)}" height="${sz(8)}" fill="${COLORS[3]}"/><path d="M0 0H${sz(8)}M0 0V${sz(8)}" stroke="${wh}" stroke-width="${sz(1.4)}"/></pattern>`;
-}
 $("legend").insertAdjacentHTML("afterbegin", markHTML());
 
 // 境界の折れ線の中点（同じ色の隣りあいの × 印を置く場所）
@@ -227,17 +207,6 @@ function finish(lastK) {
   setTimeout(showClear, 1100);
 }
 
-// 塗り終えた地図の SVG（クリア画面と共有画像で使う）。u は「画面の 1px が地図の何単位か」
-function mapSVG(m, fills, { id = "cp", u = 1, line = 1.2, attrs = "" } = {}) {
-  const [x, y, w, h] = m.box, px = w * 0.03, py = h * 0.03;
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" ${attrs} viewBox="${x - px} ${y - py} ${w + 2 * px} ${h + 2 * py}" preserveAspectRatio="xMidYMid meet">` +
-    `<defs>${patternDefs(id, u)}</defs>`;
-  m.regions.forEach((r, i) => (s += `<path d="${r.d}" fill="url(#${id}${fills[i]})" stroke="${COLORS[fills[i]]}" stroke-width="${0.6 * u}"/>`));
-  return s + `<path d="${m.border}" fill="none" stroke="${INK}" stroke-width="${line * u}" stroke-linejoin="round"/></svg>`;
-}
-// 表示する枠（width × height px）に box を収めたとき、1px が地図の何単位か
-const unitsPerPx = (box, width, height) => Math.max((box[2] * 1.06) / (width || 300), (box[3] * 1.06) / (height || 300));
-
 // クリア画面: 共有画像と同じ見た目の板
 function showClear() {
   if (!done) return;
@@ -350,57 +319,14 @@ $("b-list").onclick = backToList;
 $("b-again").onclick = () => start(S);
 $("b-share").onclick = share;
 
-// ---------- 共有画像: 地図・ステージ名・タイムだけ。クリア画面の板と同じ見た目 ----------
+// ---------- 共有: 画像（地図・ステージ名・タイムだけ）と文面 ----------
 async function share() {
-  const W = 1080, H = 1350, R = 2.4; // R: 画面の 1px が画像の何 px か
-  const cv = document.createElement("canvas");
-  cv.width = W; cv.height = H;
-  const g = cv.getContext("2d");
-  await Promise.all([document.fonts.load(`700 40px "BIZ UDPMincho"`), document.fonts.load(`700 40px "BIZ UDPGothic"`)]).catch(() => {});
-  g.fillStyle = "#F4F7F8"; g.fillRect(0, 0, W, H);
-  // 二重の枠と方眼
-  const o = 40, i2 = o + 5 * R;
-  g.fillStyle = "#fff"; g.fillRect(o, o, W - 2 * o, H - 2 * o);
-  g.strokeStyle = INK; g.lineWidth = 1.5 * R; g.strokeRect(o, o, W - 2 * o, H - 2 * o);
-  g.save(); g.beginPath(); g.rect(i2, i2, W - 2 * i2, H - 2 * i2); g.clip();
-  g.strokeStyle = "#DCE6EB"; g.lineWidth = R;
-  for (let x = i2; x < W; x += 30 * R) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
-  for (let y = i2; y < H; y += 30 * R) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
-  g.restore();
-  g.strokeStyle = INK; g.lineWidth = R; g.strokeRect(i2, i2, W - 2 * i2, H - 2 * i2);
-  const [pre, nm] = parts(S);
-  const L = i2 + 16 * R;
-  g.textBaseline = "top";
-  g.fillStyle = "#5C6B78"; g.font = `400 ${15 * R}px "BIZ UDPMincho", serif`;
-  if (pre) g.fillText(pre, L, i2 + 16 * R);
-  g.fillStyle = INK; g.font = `700 ${30 * R}px "BIZ UDPMincho", serif`;
-  g.fillText(nm, L, i2 + 16 * R + (pre ? 20 * R : 0));
-  // 下の帯: 区切り線・タイム・ロゴ
-  const fy = H - i2 - 70 * R;
-  g.strokeStyle = INK; g.lineWidth = R; g.beginPath(); g.moveTo(L, fy); g.lineTo(W - L, fy); g.stroke();
-  g.textBaseline = "alphabetic";
-  g.font = `400 ${13 * R}px "BIZ UDPGothic", sans-serif`; g.fillStyle = "#5C6B78";
-  g.fillText("タイム", L, H - i2 - 16 * R);
-  const tw = g.measureText("タイム").width;
-  g.font = `700 ${46 * R}px "BIZ UDPGothic", sans-serif`; g.fillStyle = INK;
-  g.fillText(lastTime, L + tw + 8 * R, H - i2 - 14 * R);
-  g.font = `400 ${13 * R}px "BIZ UDPMincho", serif`; g.textAlign = "right";
-  g.fillText("四色ぬりわけ", W - L, H - i2 - 16 * R);
-  const lw = g.measureText("四色ぬりわけ").width;
-  COLORS.forEach((c, k) => { g.fillStyle = c; g.fillRect(W - L - lw - 32 * R + (k % 2) * 13 * R, H - i2 - 42 * R + Math.floor(k / 2) * 13 * R, 11 * R, 11 * R); });
-  g.textAlign = "left";
-  // 地図（模様は画面のクリア画面と同じ細かさにする）
-  const top = i2 + 16 * R + (pre ? 20 * R : 0) + 44 * R, mh = fy - 8 * R - top, mw = W - 2 * L;
-  const img = new Image();
-  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(mapSVG(S, color, { id: "sp", u: unitsPerPx(S.box, mw, mh) * R, attrs: `width="${mw}" height="${mh}"` }));
-  await img.decode();
-  g.drawImage(img, L, top, mw, mh);
-
-  const blob = await new Promise((res) => cv.toBlob(res, "image/png"));
+  const blob = await toBlob(await drawShareImage(S, color, lastTime));
   const file = new File([blob], "nuriwake.png", { type: "image/png" });
-  const text = `${pre ? pre + " " : ""}${nm}を ${lastTime} で塗り分けた！ #四色ぬりわけ`;
+  const text = TEXTS.short({ title: stageTitle(S), time: lastTime, n: S.n });
+  const url = location.origin + BASE;
   try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text, url }); return; }
   } catch (err) { if (err && err.name === "AbortError") return; }
   $("sh-img").src = URL.createObjectURL(blob);
   $("share").classList.add("on");
