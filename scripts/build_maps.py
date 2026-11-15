@@ -284,10 +284,11 @@ def ipath_lines(g):
 
 
 def main_box(geoms, pad=0.04):
-    """離れた小島（小笠原など）を外した、本土の範囲。最大の陸の 2% 未満の島は範囲に入れない。"""
+    """離れた小島（小笠原、奄美など）を外した、本土の範囲。最大の陸の 5% 未満の島は範囲に入れない。"""
+    # 注意: 県や市町村ごとの形のまま比べるので、本島が細かく分かれていると、大きめの離島が範囲に入る（九州地方の奄美など）
     parts = [q for g in geoms for q in (g.geoms if isinstance(g, MultiPolygon) else [g])]
     big = max(q.area for q in parts)
-    x0, y0, x1, y1 = shapely.total_bounds([q for q in parts if q.area >= big * 0.02])
+    x0, y0, x1, y1 = shapely.total_bounds([q for q in parts if q.area >= big * 0.05])
     return box_list(x0, y0, x1, y1, pad)
 
 
@@ -296,20 +297,24 @@ def box_list(x0, y0, x1, y1, pad=0.04):
     return [round(x0 - pw), round(y0 - ph), round(x1 - x0 + 2 * pw), round(y1 - y0 + 2 * ph)]
 
 
-def thumb_geoms(geoms, tol):
-    P = [drop_specks(g, tol * tol) for g in to_plane(list(geoms))]
+def thumb_geoms(geoms, rel):
+    """簡略化の強さは、本土の表示範囲の大きさに対する割合（rel）で決める。範囲を拡大しても角ばらないように。"""
+    P = to_plane(list(geoms))
+    mb = main_box(P)
+    tol = rel * max(mb[2], mb[3])
+    P = [drop_specks(g, tol * tol) for g in P]
     return list(shapely.coverage_simplify(np.array(P, dtype=object), tol))
 
 
-def thumb(geoms, tol=4.0):
+def thumb(geoms, rel=0.004):
     """地図の輪郭（陸と境界線）と、本土に寄せた表示範囲。"""
-    S = thumb_geoms(geoms, tol)
+    S = thumb_geoms(geoms, rel)
     return {"vb": main_box(S), "land": "".join(ipath_polys(g) for g in S), "lines": ipath_lines(unary_union([g.boundary for g in S]))}
 
 
-def thumb_pref(geoms, masks, tol=4.0):
+def thumb_pref(geoms, masks, rel=0.004):
     """県全体の輪郭と、ステージごとに強調する部分。masks はステージごとの「どの市町村が入るか」。"""
-    S = thumb_geoms(geoms, tol)
+    S = thumb_geoms(geoms, rel)
     t = {"vb": main_box(S), "land": "".join(ipath_polys(g) for g in S), "lines": ipath_lines(unary_union([g.boundary for g in S])), "parts": []}
     mb = t["vb"]
     for m in masks:
@@ -362,11 +367,11 @@ def main():
             # 北海道は 1 道だけなので、地方の入口は振興局で分けた北海道全体にする
             hk = merge_by(ward[(ward.N03_001 == "北海道") & ~is_undetermined(ward)], ["N03_002"])
             stage = build_stage("北海道（振興局）", hk.geometry, list(hk.N03_002))
-            stage_thumb = thumb(hk.geometry, 12.0)
+            stage_thumb = thumb(hk.geometry, 0.012)
         elif len(members) > 1:
             sel = pref[pref.N03_001.isin(members)]
             stage = build_stage(f"{BLOCK_STAGE_NAME.get(bname, bname)}地方", sel.geometry, list(sel.N03_001))
-            stage_thumb = thumb(sel.geometry, 12.0)
+            stage_thumb = thumb(sel.geometry, 0.012)
         codes = {r.N03_001: r.N03_007[:2] for r in pref.itertuples()}
         bp = []
         for pn in prefs:
@@ -376,7 +381,7 @@ def main():
         blocks.append({"name": bname, "stage": stage, "thumb": stage_thumb, "prefs": bp})
 
     zen = build_stage("日本地図", pref.geometry, list(pref.N03_001))
-    write_split({"zenkoku": zen, "zen_thumb": thumb(pref.geometry, 4.0), "blocks": blocks})
+    write_split({"zenkoku": zen, "zen_thumb": thumb(pref.geometry, 0.004), "blocks": blocks})
 
 
 def write_split(data):

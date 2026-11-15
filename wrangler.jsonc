@@ -1,11 +1,22 @@
-// Cloudflare Workers の静的アセットで配信する設定（docs/SPEC.md「公開」）
-// いまは開発用の Worker だけ。本番（自分のドメイン、GitHub 連携で push 時に自動公開）はあとで足す
+// Cloudflare Workers の静的アセットで配信する設定（docs/DEPLOY.md）
+// サーバー側の処理は持たない。dist/ の静的ファイルを配るだけ
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "four-coloring-game-dev",
+  // 本番: GitHub 連携（Workers Builds）が main への push ごとに `npx wrangler deploy` で配置する
+  "name": "four-coloring-game",
   "compatibility_date": "2026-11-01",
-  // サーバー側の処理は持たない。dist/ の静的ファイルを配るだけ
-  "assets": {
-    "directory": "./dist"
+  "assets": { "directory": "./dist" },
+  // 自分のドメインで配信する。smooth-pudding.net の DNS が同じ Cloudflare アカウントにある必要がある
+  "routes": [{ "pattern": "four-coloring.smooth-pudding.net", "custom_domain": true }],
+  // *.workers.dev の URL は使わない（入口を自分のドメインだけにする）
+  "workers_dev": false,
+  "env": {
+    // 開発用: 手元から `npm run deploy:dev` で配置する。*.workers.dev で開く
+    "dev": {
+      "name": "four-coloring-game-dev",
+      "assets": { "directory": "./dist" },
+      "routes": [],
+      "workers_dev": true
+    }
   }
 }

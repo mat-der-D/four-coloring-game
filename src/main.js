@@ -2,7 +2,7 @@ import "./style.css";
 // 一覧（地方 -> 都道府県 -> ステージ）。地図そのものはステージを選んだときに public/maps/ から読む
 import DATA from "./data/stages.json";
 import { COLORS, BLANK, INK, CONF, parts, patternDefs, mapSVG, unitsPerPx } from "./render.js";
-import { drawShareImage, toBlob, stageTitle, shareText, SNS, snsIcon } from "./share.js";
+import { drawShareImage, toBlob, stageTitle, shareText, SNS, snsIcon, SHARE_URL } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
 const BASE = import.meta.env.BASE_URL;
@@ -37,7 +37,6 @@ function renderTop() {
   hero.className = "hero gridbg";
   hero.innerHTML = `<div class="in"><div class="nm">日本地図<span>47 都道府県</span></div>${count(DATA.zenkoku.n)}</div>${thumbSVG(DATA.zenkoku.thumb)}`;
   hero.onclick = () => start(DATA.zenkoku);
-  top.appendChild(hero);
   for (const b of DATA.blocks) {
     const sec = document.createElement("section");
     sec.className = "blk";
@@ -60,6 +59,8 @@ function renderTop() {
     sec.appendChild(g);
     top.appendChild(sec);
   }
+  // 日本地図（47 地域）は大きいステージなので、地方のあとに置く
+  top.appendChild(hero);
   top.insertAdjacentHTML("beforeend", `<p class="credit">出典：<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2025.html">国土交通省 国土数値情報（行政区域データ 2025年）</a>をもとに加工して作成</p>`);
 }
 // 県のページ: 部分のステージは、県全体の輪郭の中でその部分を濃く示す。県全体は二重の枠で分ける
@@ -329,7 +330,7 @@ async function share() {
     shared = { key, blob, file: new File([blob], "yonshoku-nuriwake.png", { type: "image/png" }), text: shareText({ title: stageTitle(S), time: lastTime }) };
     $("sh-img").src = URL.createObjectURL(blob);
   }
-  const url = location.origin + BASE;
+  const url = SHARE_URL;
   const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
   $("sh-msg").innerHTML = `${esc(shared.text)}\n<u>${esc(url)}</u>`;
   $("sh-sns").innerHTML = SNS.map((s) => `<a href="${s.href(shared.text, url)}" target="_blank" rel="noopener">${snsIcon(s)}${s.label}</a>`).join("");
@@ -351,7 +352,7 @@ $("share").onclick = (e) => { if (e.target.id === "share" || e.target.id === "sh
 let shToastT;
 function shToast(msg) { const t = $("sh-toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(shToastT); shToastT = setTimeout(() => t.classList.remove("on"), 1600); }
 $("sh-native").onclick = async () => {
-  try { await navigator.share({ files: [shared.file], text: shared.text, url: location.origin + BASE }); }
+  try { await navigator.share({ files: [shared.file], text: shared.text, url: SHARE_URL }); }
   catch (err) { if (err?.name !== "AbortError") shToast("共有できませんでした"); }
 };
 $("sh-save").onclick = () => {
@@ -364,12 +365,12 @@ $("sh-copyimg").onclick = async () => {
   catch { shToast("この環境では画像をコピーできません"); }
 };
 $("sh-copytxt").onclick = async () => {
-  try { await navigator.clipboard.writeText(shared.text + "\n" + location.origin + BASE); shToast("文面をコピーしました"); }
+  try { await navigator.clipboard.writeText(shared.text + "\n" + SHARE_URL); shToast("文面をコピーしました"); }
   catch { shToast("コピーできませんでした"); }
 };
 
-// 開発用: URL の #m番号 で地図ファイル（public/maps/番号.json）のステージを直接開く（例 #m138）
-{
+// 開発用: URL の #m番号 で地図ファイル（public/maps/番号.json）のステージを直接開く（例 #m138）。本番のビルドには入らない
+if (import.meta.env.DEV) {
   const mm = location.hash.match(/^#m(\d{3})$/);
   const all = [DATA.zenkoku, ...DATA.blocks.flatMap((b) => [b.stage, ...b.prefs.flatMap((p) => [...p.stages, p.whole])])].filter(Boolean);
   const hit = mm && all.find((s) => s.file === `${mm[1]}.json`);

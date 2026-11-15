@@ -105,6 +105,8 @@ export async function drawShareImage(stage, fills, time, { width = 1080, height 
 export const toBlob = (cv) => new Promise((res) => cv.toBlob(res, "image/png"));
 
 // ---------- 共有の文面 ----------
+// 共有するのは本番の URL（開発用の環境から共有しても、本番へ案内する）
+export const SHARE_URL = "https://four-coloring.smooth-pudding.net/";
 export const stageTitle = (stage) => parts(stage).filter(Boolean).join(" ");
 
 // 文面（人間が「短く」を選んだ）。URL は別に付ける
