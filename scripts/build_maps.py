@@ -3,15 +3,18 @@
 手順: 地域に束ねる -> 隣接を求める（簡略化の前） -> 座標を平面に落とす -> 簡略化 -> SVG のパスにする
           -> 4 色で塗り分けられるか確認する
 
-使い方: uv run python scripts/build_maps.py
+使い方: uv run python scripts/build_maps.py [--jobs N]（N はプロセス数。既定は CPU 数と 8 の小さいほう）
 入力  : data-raw/n03-2025/N03-20250101.shp（docs/DATA.md 参照）
 出力  : src/data/stages.json（一覧）と public/maps/NNN.json（ステージごと）
 """
 import hashlib
 import json
 import math
+import multiprocessing
+import os
 import sys
 import time
+from concurrent.futures import Future, ProcessPoolExecutor
 from pathlib import Path
 
 import geopandas as gpd
@@ -46,7 +49,13 @@ def load_units() -> gpd.GeoDataFrame:
 
 
 def merge_by(u: gpd.GeoDataFrame, keys) -> gpd.GeoDataFrame:
-    return u.fillna({"N03_002": "", "N03_003": ""}).dissolve(by=keys, aggfunc="first").reset_index()
+    """u.dissolve(by=keys, aggfunc="first") と同じもの。形の union はまとまりごとに独立なので、子プロセスに分けて行う。"""
+    u = u.fillna({"N03_002": "", "N03_003": ""})
+    data = u.drop(columns=u.geometry.name).groupby(keys).agg("first")
+    parts = [list(g) for _, g in u.groupby(keys)[u.geometry.name]]
+    merged = POOL.map(shapely.union_all, parts, chunksize=8)
+    g = gpd.GeoDataFrame(geometry=list(merged), index=data.index, crs=u.crs)
+    return g.join(data).reset_index()
 
 
 # ---------- ステージを作る ----------
@@ -239,11 +248,40 @@ def build_stage(name, geoms, names=None):
     pairs = [tuple(x) for x in json.loads(fa.read_text())] if fa.exists() else None
     st, pairs = build_stage_raw(name, geoms, names, pairs)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    fa.write_text(json.dumps(pairs))
-    print(f"    ({time.time() - t:.0f} 秒)", flush=True)
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    f.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+    write_atomic(fa, json.dumps(pairs))
+    print(f"    {name}: ({time.time() - t:.0f} 秒)", flush=True)
+    write_atomic(f, json.dumps(st, ensure_ascii=False))
     return st
+
+
+def write_atomic(f, text):
+    """別のプロセスが同じキャッシュを読み書きしても書きかけを読まないように、一時ファイルに書いてから置き換える。"""
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_name(f"{f.name}.{os.getpid()}.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, f)
+
+
+# ---------- 並列に作る ----------
+# ステージとサムネイルは互いに独立なので、別のプロセスで作る。
+# fork で起動するので、set_anchors の結果は子プロセスにそのまま引き継がれる（N03 全体を子で読み直さない）。
+POOL = None
+
+
+def later(fn, *args):
+    """fn(*args) を子プロセスに投げる。結果は resolve で取り出す。"""
+    return POOL.submit(fn, *args)
+
+
+def resolve(x):
+    """入れ子の dict と list の中の Future を、結果に置き換える。"""
+    if isinstance(x, Future):
+        return x.result()
+    if isinstance(x, dict):
+        return {k: resolve(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [resolve(v) for v in x]
+    return x
 
 
 def build_stage_raw(name, geoms, names=None, pairs=None):
@@ -319,14 +357,14 @@ def honpen(ward, city, pref_name, spec):
     stages = []
     for a in spec["areas"]:
         u = units(a)
-        stages.append(build_stage(f"{pref_name} {a['name']}", u.geometry, list(u.N03_005.fillna(u.N03_004)) if a.get("wards") else list(u.N03_004)))
+        stages.append(later(build_stage, f"{pref_name} {a['name']}", list(u.geometry), list(u.N03_005.fillna(u.N03_004)) if a.get("wards") else list(u.N03_004)))
     upper = []
     byname = {a["name"]: a for a in spec["areas"]}
     for up in spec.get("upper", []):
         munis = [m for nm in up["of"] for m in byname[nm]["munis"]]
         u = city[(city.N03_001 == pref_name) & city.N03_004.isin(munis)]
-        upper.append(build_stage(f"{pref_name} {up['name']}（上の階層）", u.geometry, list(u.N03_004)))
-    whole = build_stage(pref_name, cu.geometry, list(cu.N03_004))
+        upper.append(later(build_stage, f"{pref_name} {up['name']}（上の階層）", list(u.geometry), list(u.N03_004)))
+    whole = later(build_stage, pref_name, list(cu.geometry), list(cu.N03_004))
     return stages, upper, whole
 
 
@@ -404,15 +442,21 @@ MAX_UNSPLIT = 25  # これ以下の県は分けずに 1 ステージ（仕様書
 
 
 def main():
+    global POOL
+    jobs = int(sys.argv[sys.argv.index("--jobs") + 1]) if "--jobs" in sys.argv else min(os.cpu_count() or 1, 8)
     sys.path.insert(0, str(Path(__file__).parent))
     from areas import AREAS
 
     ward = load_units()  # 区ごと（コード単位）
     set_anchors(ward[ward.N03_004 != "所属未定地"])  # 表示の枠を決める点（frame_parts）
+    POOL = ProcessPoolExecutor(jobs, mp_context=multiprocessing.get_context("fork"))  # set_anchors のあとに作る（子に引き継ぐ）
     city = merge_by(ward, ["N03_001", "N03_003", "N03_004"])  # 政令市は市でまとめる
     is_undetermined = lambda d: d["N03_004"] == "所属未定地"
     pref = merge_by(ward[~is_undetermined(ward)], ["N03_001"])
-    print(f"地域: 区ごと {len(ward)} / 市でまとめ {len(city)} / 都道府県 {len(pref)}")
+    print(f"地域: 区ごと {len(ward)} / 市でまとめ {len(city)} / 都道府県 {len(pref)} / {jobs} プロセスで作る", flush=True)
+    # 時間のかかる全国は最初に投げる（最後に投げると、それだけが残って待つ）
+    zen = later(build_stage, "日本地図", list(pref.geometry), list(pref.N03_001))
+    zen_thumb = later(thumb, list(pref.geometry), 0.004)
 
     def pref_stages(pref_name):
         """1 県ぶんのステージ。分けた県は最後に県全体（まるごと）を付ける。"""
@@ -420,18 +464,18 @@ def main():
             stages, _upper, whole = honpen(ward, city, pref_name, AREAS[pref_name])
             cu = city[(city.N03_001 == pref_name) & ~is_undetermined(city)]
             masks = [list(cu.N03_004.isin(a["munis"])) for a in AREAS[pref_name]["areas"]]
-            return {"name": pref_name, "stages": stages, "whole": whole, "thumb": thumb_pref(cu.geometry, masks)}
+            return {"name": pref_name, "stages": stages, "whole": whole, "thumb": later(thumb_pref, list(cu.geometry), masks)}
         if pref_name == "北海道":
             # 案: 振興局ごと（データの N03_002）。政令市（札幌）は他と同じ振興局に入るので市で 1 つ
             hc = city[(city.N03_001 == "北海道") & ~is_undetermined(city)]
             groups = list(hc.groupby("N03_002", sort=False))
-            stages = [build_stage(f"北海道 {k}", g.geometry, list(g.N03_004)) for k, g in groups]
+            stages = [later(build_stage, f"北海道 {k}", list(g.geometry), list(g.N03_004)) for k, g in groups]
             masks = [list(hc.N03_002 == k) for k, _ in groups]
-            return {"name": pref_name, "stages": stages, "whole": build_stage("北海道", hc.geometry, list(hc.N03_004)), "thumb": thumb_pref(hc.geometry, masks)}
+            return {"name": pref_name, "stages": stages, "whole": later(build_stage, "北海道", list(hc.geometry), list(hc.N03_004)), "thumb": later(thumb_pref, list(hc.geometry), masks)}
         cu = city[(city.N03_001 == pref_name) & ~is_undetermined(city)]
         if len(cu) > MAX_UNSPLIT:
             raise SystemExit(f"{pref_name}: {len(cu)} 市区町村あるのに対応表（scripts/areas.py）が無い")
-        return {"name": pref_name, "stages": [build_stage(pref_name, cu.geometry, list(cu.N03_004))], "whole": None, "thumb": thumb_pref(cu.geometry, [[True] * len(cu)])}
+        return {"name": pref_name, "stages": [later(build_stage, pref_name, list(cu.geometry), list(cu.N03_004))], "whole": None, "thumb": later(thumb_pref, list(cu.geometry), [[True] * len(cu)])}
 
     blocks = []
     for bname, prefs in BLOCKS.items():
@@ -440,12 +484,12 @@ def main():
         if bname == "北海道":
             # 北海道は 1 道だけなので、地方の入口は振興局で分けた北海道全体にする
             hk = merge_by(ward[(ward.N03_001 == "北海道") & ~is_undetermined(ward)], ["N03_002"])
-            stage = build_stage("北海道（振興局）", hk.geometry, list(hk.N03_002))
-            stage_thumb = thumb(hk.geometry, 0.012)
+            stage = later(build_stage, "北海道（振興局）", list(hk.geometry), list(hk.N03_002))
+            stage_thumb = later(thumb, list(hk.geometry), 0.012)
         elif len(members) > 1:
             sel = pref[pref.N03_001.isin(members)]
-            stage = build_stage(f"{BLOCK_STAGE_NAME.get(bname, bname)}地方", sel.geometry, list(sel.N03_001))
-            stage_thumb = thumb(sel.geometry, 0.012)
+            stage = later(build_stage, f"{BLOCK_STAGE_NAME.get(bname, bname)}地方", list(sel.geometry), list(sel.N03_001))
+            stage_thumb = later(thumb, list(sel.geometry), 0.012)
         codes = {r.N03_001: r.N03_007[:2] for r in pref.itertuples()}
         bp = []
         for pn in prefs:
@@ -454,8 +498,9 @@ def main():
             bp.append(ps)
         blocks.append({"name": bname, "stage": stage, "thumb": stage_thumb, "prefs": bp})
 
-    zen = build_stage("日本地図", pref.geometry, list(pref.N03_001))
-    write_split({"zenkoku": zen, "zen_thumb": thumb(pref.geometry, 0.004), "blocks": blocks})
+    data = resolve({"zenkoku": zen, "zen_thumb": zen_thumb, "blocks": blocks})
+    POOL.shutdown()
+    write_split(data)
 
 
 def write_split(data):
