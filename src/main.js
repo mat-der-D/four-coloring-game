@@ -7,37 +7,52 @@ const $ = (id) => document.getElementById(id);
 const SVGNS = "http://www.w3.org/2000/svg";
 
 // ---------- select screen ----------
-function addSection(tag, title, note) {
-  const h = document.createElement("div"); h.className = "sec";
-  h.innerHTML = `<span class="tag">${tag}</span>${title}${note ? `<small>${note}</small>` : ""}`;
-  $("list").appendChild(h);
-}
-function addStage(s, label, parent) {
-  const i = STAGES.push(s) - 1;
+// 一覧（地方 -> 都道府県 -> ステージ）は src/data/stages.json。地図そのものはステージを選んだときに読む
+let selPref = null; // 都道府県の一覧を開いているときはその県
+const short = (name) => (name === "北海道" ? name : name.replace(/[都府県]$/, ""));
+function stageButton(s, label) {
+  const i = STAGES.indexOf(s) >= 0 ? STAGES.indexOf(s) : STAGES.push(s) - 1;
   const b = document.createElement("button");
   b.className = "stage";
-  b.innerHTML = `<span>${label || s.name}</span><span class="n">${s.n}</span>`;
+  b.innerHTML = `<span>${label}</span><span class="n">${s.n}</span>`;
   b.onclick = () => start(i);
-  (parent || $("list")).appendChild(b);
+  return b;
 }
-addSection("入門", "地方");
-DATA.chiho.forEach((s) => addStage(s));
-addSection("本編", "地域");
-DATA.chiiki.forEach(({ pref, stages }) => {
-  if (stages.length === 1) { addStage(stages[0]); return; }
-  const grp = document.createElement("div"); grp.className = "grp";
-  grp.innerHTML = `<div class="gname">${pref}</div>`;
-  stages.forEach((s) => addStage(s, s.name.replace(pref + " ", ""), grp));
-  const whole = DATA.ken.find((k) => k.name === pref);
-  if (whole) addStage(whole, `まるごと <span class="adv">上級</span>`, grp);
-  $("list").appendChild(grp);
-});
-if (DATA.compare && DATA.compare.length) {
-  addSection("比較", "分け方の比較用（試作のみ）");
-  DATA.compare.forEach((s) => addStage(s));
+function renderTop() {
+  selPref = null;
+  const list = $("list"); list.innerHTML = "";
+  $("sel-head").hidden = false; $("pref-head").hidden = true;
+  list.appendChild(stageButton(DATA.zenkoku, "日本地図（47都道府県）"));
+  for (const b of DATA.blocks) {
+    const h = document.createElement("div"); h.className = "block";
+    h.innerHTML = `<span class="bname">${b.name}</span>`;
+    if (b.stage) {
+      const bb = stageButton(b.stage, b.stage.name); bb.classList.add("mini");
+      h.appendChild(bb);
+    }
+    list.appendChild(h);
+    const grid = document.createElement("div"); grid.className = "prefs";
+    for (const p of b.prefs) {
+      const n = p.stages.length + (p.whole ? 1 : 0);
+      const btn = document.createElement("button"); btn.className = "pref";
+      btn.textContent = short(p.name);
+      btn.onclick = () => (n === 1 ? start(STAGES.indexOf(p.stages[0]) >= 0 ? STAGES.indexOf(p.stages[0]) : STAGES.push(p.stages[0]) - 1) : renderPref(p));
+      grid.appendChild(btn);
+    }
+    list.appendChild(grid);
+  }
 }
-addSection("全国", "47都道府県");
-addStage(DATA.zenkoku);
+function renderPref(p) {
+  selPref = p;
+  const list = $("list"); list.innerHTML = "";
+  $("sel-head").hidden = true; $("pref-head").hidden = false;
+  $("pref-name").textContent = p.name;
+  for (const s of p.stages) list.appendChild(stageButton(s, s.name.replace(p.name + " ", "")));
+  if (p.whole) list.appendChild(stageButton(p.whole, `${p.name}全体`));
+  $("sel").scrollTop = 0;
+}
+$("pref-back").onclick = renderTop;
+renderTop();
 
 // ---------- game state ----------
 let S, color, adj, pairD, conflicts, t0, timerId, done, view;
@@ -109,19 +124,35 @@ function finish(lastK) {
 let lastTime = "";
 
 // ---------- pan / zoom / tap ----------
+// 表示の位置と倍率。committed は SVG に描いた状態、view は今の見た目。
+// 操作中は SVG 要素ごと CSS transform で動かす（描き直さないので軽い）。指を離したら描き直す
+let committed = null;
 function fitView(animate) {
   const st = $("stage").getBoundingClientRect();
   const [bx, by, bw, bh] = S.box;
   const padTop = 0.12;
   const k = Math.min(st.width / bw, st.height * (1 - padTop * 2) / bh) * 0.94;
   view = { k, x: (st.width - bw * k) / 2 - bx * k, y: (st.height - bh * k) / 2 - by * k };
-  applyView(animate);
+  if (animate && committed) {
+    const m = $("map");
+    m.style.transition = "transform .45s ease";
+    applyView();
+    setTimeout(() => { m.style.transition = "none"; commitView(); }, 460);
+  } else commitView();
 }
-function applyView(animate) {
-  const vp = $("vp");
-  vp.style.transition = animate ? "transform .45s ease" : "none";
-  vp.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
+function applyView() {
+  const c = committed, s = view.k / c.k;
+  const m = $("map");
+  m.style.willChange = "transform";
+  m.style.transform = `translate(${view.x - s * c.x}px,${view.y - s * c.y}px) scale(${s})`;
 }
+function commitView() {
+  committed = { ...view };
+  $("vp").setAttribute("transform", `translate(${view.x} ${view.y}) scale(${view.k})`);
+  const m = $("map");
+  m.style.transform = ""; m.style.willChange = "";
+}
+let wheelT;
 const pts = new Map(); let gesture = null;
 const stageEl = $("stage");
 $("map").addEventListener("pointerdown", (e) => {
@@ -156,20 +187,21 @@ function up(e) {
     if (t && t.dataset && t.dataset.r !== undefined) tapRegion(+t.dataset.r);
   }
   if (pts.size === 1) { const q = [...pts.values()][0]; q.sx = q.x; q.sy = q.y; gesture = { moved: true, base: { ...view } }; }
-  if (pts.size === 0) gesture = null;
+  if (pts.size === 0) { if (gesture && gesture.moved) commitView(); gesture = null; }
 }
 $("map").addEventListener("pointerup", up);
-$("map").addEventListener("pointercancel", (e) => { pts.delete(e.pointerId); if (!pts.size) gesture = null; });
+$("map").addEventListener("pointercancel", (e) => { pts.delete(e.pointerId); if (!pts.size) { gesture = null; commitView(); } });
 $("map").addEventListener("wheel", (e) => {
   e.preventDefault(); if (done) return;
   const r = stageEl.getBoundingClientRect(); const mx = e.clientX - r.left, my = e.clientY - r.top;
   const k = Math.max(0.3, Math.min(view.k * Math.exp(-e.deltaY * 0.0015), 40));
   view = { k, x: mx - (mx - view.x) * (k / view.k), y: my - (my - view.y) * (k / view.k) }; applyView();
+  clearTimeout(wheelT); wheelT = setTimeout(commitView, 150);
 }, { passive: false });
 window.addEventListener("resize", () => { if (S && $("game").classList.contains("on")) fitView(); });
 
 // ---------- buttons ----------
-$("back").onclick = () => { clearInterval(timerId); $("game").classList.remove("on"); $("sel").classList.add("on"); };
+$("back").onclick = () => { clearInterval(timerId); $("game").classList.remove("on"); $("sel").classList.add("on"); if (selPref) renderPref(selPref); };
 $("b-list").onclick = $("back").onclick;
 $("b-again").onclick = () => start(STAGES.indexOf(S));
 $("b-share").onclick = share;
@@ -202,6 +234,11 @@ async function share() {
 }
 $("share").onclick = (e) => { if (e.target.id === "share" || e.target.id === "sh-close") $("share").classList.remove("on"); };
 
-// 開発用: URL の #番号 でステージを直接開く（例 http://localhost:5173/#7）
-const hashStage = Number(location.hash.slice(1));
-if (location.hash && hashStage >= 0 && hashStage < STAGES.length) start(hashStage);
+
+// 開発用: URL の #m番号 で地図ファイル（public/maps/番号.json）のステージを直接開く（例 #m087）
+{
+  const mm = location.hash.match(/^#m(\d{3})$/);
+  const all = [DATA.zenkoku, ...DATA.blocks.flatMap((b) => [b.stage, ...b.prefs.flatMap((p) => [...p.stages, p.whole])])].filter(Boolean);
+  const hit = mm && all.find((s) => s.file === `${mm[1]}.json`);
+  if (hit) start(STAGES.indexOf(hit) >= 0 ? STAGES.indexOf(hit) : STAGES.push(hit) - 1);
+}

@@ -28,7 +28,8 @@ CACHE = ROOT / "data-raw/n03-2025/units.gpkg"
 INDEX = ROOT / "src/data/stages.json"  # ステージの一覧（名前と地域数）
 MAPS_DIR = ROOT / "public/maps"  # ステージごとの地図
 SIZE = 1000.0  # 1 ステージの長辺（画面座標）
-SIMPLIFY = 0.8  # 簡略化の許容誤差（画面座標）
+SIMPLIFY = 2.0  # 簡略化の許容誤差（画面座標）。初期表示で 1px 未満
+SPECK = 6.0  # これより小さい島（面積、画面座標）は落とす
 
 
 # ---------- 束ねる ----------
@@ -65,19 +66,23 @@ def adjacency(geoms):
     """境界線を共有している組（点だけの接触は除く）。簡略化の前の形で求める。"""
     eps, minlen = 0.004, 0.02
     tree = STRtree(geoms)
+    bounds = [g.boundary for g in geoms]
     pairs = []
     for i, g in enumerate(geoms):
-        gb = g.boundary
-        for j in tree.query(g.buffer(eps)):
+        x0, y0, x1, y1 = g.bounds
+        for j in tree.query(shapely.box(x0 - eps, y0 - eps, x1 + eps, y1 + eps)):
             if j <= i:
                 continue
-            shared = gb.intersection(geoms[j].buffer(eps))
-            if shared.length > minlen:
+            # N03 は隣どうしが境界の頂点を共有しているので、まず境界線の交わりをそのまま見る（速い）
+            if bounds[i].intersection(bounds[j]).length > minlen:
+                pairs.append((i, int(j)))
+            # 頂点がずれているときだけ、ずらし幅をつけて見る（遅い）
+            elif g.distance(geoms[j]) < eps and bounds[i].intersection(geoms[j].buffer(eps)).length > minlen:
                 pairs.append((i, int(j)))
     return pairs
 
 
-def drop_specks(g, min_area=1.5):
+def drop_specks(g, min_area=SPECK):
     """画面で見えないほど小さい島を落とす（最大の部分は必ず残す）。"""
     parts = list(g.geoms) if isinstance(g, MultiPolygon) else [g]
     big = max(parts, key=lambda p: p.area)
@@ -142,31 +147,39 @@ def four_colorable(n, pairs):
 
 
 CACHE_DIR = ROOT / "data-raw/cache"
-BUILD_VERSION = 2  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
+BUILD_VERSION = 3
+ADJ_VERSION = 1  # 隣接の求め方を変えたら上げる  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
 
 
 def build_stage(name, geoms, names=None):
     """build_stage_raw の結果を、入力の形と設定が同じならキャッシュから返す。"""
     geoms = list(geoms)
-    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIZE}|{SIMPLIFY}|{names}".encode())
+    gh = hashlib.sha1(f"{ADJ_VERSION}|{SIZE}".encode())
     for g in geoms:
-        h.update(shapely.to_wkb(g))
+        gh.update(shapely.to_wkb(g))
+    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIMPLIFY}|{SPECK}|{names}|{gh.hexdigest()}".encode())
     f = CACHE_DIR / f"{h.hexdigest()}.json"
     if f.exists():
         st = json.loads(f.read_text(encoding="utf-8"))
         print(f"  {name}: 地域 {st['n']}（キャッシュ）", flush=True)
         return st
     t = time.time()
-    st = build_stage_raw(name, geoms, names)
+    # 隣接は形だけで決まるので、簡略化の設定とは別にキャッシュする（全国の隣接計算は数分かかる）
+    fa = CACHE_DIR / f"adj-{gh.hexdigest()}.json"
+    pairs = [tuple(x) for x in json.loads(fa.read_text())] if fa.exists() else None
+    st, pairs = build_stage_raw(name, geoms, names, pairs)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    fa.write_text(json.dumps(pairs))
     print(f"    ({time.time() - t:.0f} 秒)", flush=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
     return st
 
 
-def build_stage_raw(name, geoms, names=None):
+def build_stage_raw(name, geoms, names=None, pairs=None):
     geoms = to_plane(geoms)
-    pairs = adjacency(geoms)
+    if pairs is None:
+        pairs = adjacency(geoms)
     orig = geoms
     geoms = [drop_specks(g) for g in geoms]
     simp = list(shapely.coverage_simplify(np.array(geoms, dtype=object), SIMPLIFY))
@@ -196,17 +209,25 @@ def build_stage_raw(name, geoms, names=None):
         "border": border,
         "colorable": bool(sol),
         **({"names": names} if names else {}),
-    }
+    }, pairs
 
 
 # ---------- ステージの定義 ----------
-CHIHO = {
-    "四国": ["徳島県", "香川県", "愛媛県", "高知県"],
+# 地方: 学校で習う 8 地方区分。選択画面の見出しにも使う。
+# 北海道は 1 道だけなので地方のステージは無し。沖縄は離島の扱いが未決なので九州のステージには入れない
+BLOCKS = {
+    "北海道": ["北海道"],
     "東北": ["青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県"],
+    "関東": ["茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県"],
+    "中部": ["新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", "静岡県", "愛知県"],
+    "近畿": ["三重県", "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県"],
     "中国": ["鳥取県", "島根県", "岡山県", "広島県", "山口県"],
-    "近畿（三重を除く）": ["滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県"],
-    "近畿（三重を含む）": ["三重県", "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県"],
+    "四国": ["徳島県", "香川県", "愛媛県", "高知県"],
+    "九州・沖縄": ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"],
 }
+# 地方のステージに入れる県（BLOCKS と違う場合だけ書く）
+BLOCK_STAGE_NAME = {"九州・沖縄": "九州"}  # 沖縄を入れないので
+BLOCK_STAGE = {"九州・沖縄": ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県"]}
 
 
 def honpen(ward, city, pref_name, spec):
@@ -250,37 +271,32 @@ def main():
     pref = merge_by(ward[~is_undetermined(ward)], ["N03_001"])
     print(f"地域: 区ごと {len(ward)} / 市でまとめ {len(city)} / 都道府県 {len(pref)}")
 
-    chiho = []
-    for nm, prefs in CHIHO.items():
-        sel = pref[pref.N03_001.isin(prefs)]
-        chiho.append(build_stage(nm, sel.geometry))
-
-    chiiki, ken, compare = [], [], []
-    hk = ward[ward.N03_001 == "北海道"]
-    for pref_name in pref.sort_values("N03_007").N03_001:  # 行政区域コード順
+    def pref_stages(pref_name):
+        """1 県ぶんのステージ。分けた県は最後に県全体（まるごと）を付ける。"""
         if pref_name in AREAS:
-            stages, upper, whole = honpen(ward, city, pref_name, AREAS[pref_name])
-            chiiki.append({"pref": pref_name, "stages": stages})
-            ken.append(whole)
-            compare += upper
-        elif pref_name == "北海道":
+            stages, _upper, whole = honpen(ward, city, pref_name, AREAS[pref_name])
+            return {"name": pref_name, "stages": stages, "whole": whole}
+        if pref_name == "北海道":
             # 案: 振興局ごと（データの N03_002）。政令市（札幌）は他と同じ振興局に入るので市で 1 つ
-            hc = city[city.N03_001 == "北海道"]
+            hc = city[(city.N03_001 == "北海道") & ~is_undetermined(city)]
             stages = [build_stage(f"北海道 {k}", g.geometry, list(g.N03_004)) for k, g in hc.groupby("N03_002", sort=False)]
-            chiiki.append({"pref": pref_name, "stages": stages})
-        else:
-            cu = city[(city.N03_001 == pref_name) & ~is_undetermined(city)]
-            if len(cu) > MAX_UNSPLIT:
-                print(f"  ! {pref_name}: {len(cu)} 市区町村。対応表が無いので飛ばす")
-                continue
-            chiiki.append({"pref": pref_name, "stages": [build_stage(pref_name, cu.geometry, list(cu.N03_004))]})
+            return {"name": pref_name, "stages": stages, "whole": None}
+        cu = city[(city.N03_001 == pref_name) & ~is_undetermined(city)]
+        if len(cu) > MAX_UNSPLIT:
+            raise SystemExit(f"{pref_name}: {len(cu)} 市区町村あるのに対応表（scripts/areas.py）が無い")
+        return {"name": pref_name, "stages": [build_stage(pref_name, cu.geometry, list(cu.N03_004))], "whole": None}
 
-    compare.append(build_stage("北海道（振興局）", merge_by(hk, ["N03_002"]).geometry))
-    compare.append(build_stage("北海道（市区町村）", merge_by(hk, ["N03_001", "N03_002", "N03_003", "N03_004"]).geometry))
+    blocks = []
+    for bname, prefs in BLOCKS.items():
+        members = BLOCK_STAGE.get(bname, prefs)
+        stage = None
+        if len(members) > 1:
+            sel = pref[pref.N03_001.isin(members)]
+            stage = build_stage(f"{BLOCK_STAGE_NAME.get(bname, bname)}地方", sel.geometry, list(sel.N03_001))
+        blocks.append({"name": bname, "stage": stage, "prefs": [pref_stages(p) for p in prefs]})
 
-    zen = build_stage("日本地図（47都道府県）", pref.geometry)
-    data = {"chiho": chiho, "chiiki": chiiki, "ken": ken, "compare": compare, "zenkoku": zen}
-    write_split(data)
+    zen = build_stage("日本地図", pref.geometry, list(pref.N03_001))
+    write_split({"zenkoku": zen, "blocks": blocks})
 
 
 def write_split(data):
@@ -295,6 +311,8 @@ def write_split(data):
 
     def put(st):
         nonlocal total, count
+        if st is None:
+            return None
         f = MAPS_DIR / f"{count:03d}.json"
         f.write_text(json.dumps(st, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         total += f.stat().st_size
@@ -302,11 +320,15 @@ def write_split(data):
         return {"name": st["name"], "n": st["n"], "file": f.name}
 
     index = {
-        "chiho": [put(s) for s in data["chiho"]],
-        "chiiki": [{"pref": c["pref"], "stages": [put(s) for s in c["stages"]]} for c in data["chiiki"]],
-        "ken": [put(s) for s in data["ken"]],
-        "compare": [put(s) for s in data["compare"]],
         "zenkoku": put(data["zenkoku"]),
+        "blocks": [
+            {
+                "name": b["name"],
+                "stage": put(b["stage"]),
+                "prefs": [{"name": p["name"], "stages": [put(s) for s in p["stages"]], "whole": put(p["whole"])} for p in b["prefs"]],
+            }
+            for b in data["blocks"]
+        ],
     }
     INDEX.write_text(json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"書き出し: {INDEX} と {MAPS_DIR}/ に {count} ステージ（計 {total // 1000}KB）")
