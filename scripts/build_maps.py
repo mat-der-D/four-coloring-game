@@ -284,12 +284,8 @@ def ipath_lines(g):
 
 
 def main_box(geoms, pad=0.04):
-    """離れた小島（小笠原、奄美など）を外した、本土の範囲。最大の陸の 5% 未満の島は範囲に入れない。"""
-    # 注意: 県や市町村ごとの形のまま比べるので、本島が細かく分かれていると、大きめの離島が範囲に入る（九州地方の奄美など）
-    parts = [q for g in geoms for q in (g.geoms if isinstance(g, MultiPolygon) else [g])]
-    big = max(q.area for q in parts)
-    x0, y0, x1, y1 = shapely.total_bounds([q for q in parts if q.area >= big * 0.05])
-    return box_list(x0, y0, x1, y1, pad)
+    """サムネイルの表示範囲。離島も含めた地図全体（ゲーム画面で塗る地図と同じ範囲にする。人間の判断、2026-11-15）。"""
+    return box_list(*shapely.total_bounds(geoms), pad)
 
 
 def box_list(x0, y0, x1, y1, pad=0.04):
