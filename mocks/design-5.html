@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>デザイン案 5：孔版印刷（リソグラフ）</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 案 5「孔版印刷」: 4 色をリソグラフの 4 本のインクとして扱う。
+   色は色相だけでなく明るさと網（ベタ・水玉・ベタ・斜線）でも区別する。衝突は黒白の破線で、どのインクとも重ならない */
+:root{
+  --paper:#F6F6F2;
+  --key:#231F20;      /* リソの黒インク */
+  --sub:#6B6966;
+  --rule:#D6D5CF;
+  --blank:#E4E3DD;    /* まだ塗っていない地域 */
+  --i0:#FFD93B;       /* イエロー：ベタ */
+  --i1:#FF5FA8;       /* 蛍光ピンク：白の水玉 */
+  --i2:#2F55B5;       /* ミディアムブルー：ベタ */
+  --i3:#14A060;       /* グリーン：白の斜線 */
+  --d:"Dela Gothic One",sans-serif;
+  --g:"Zen Kaku Gothic New",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#C9CBC4;font-family:var(--g);font-weight:500;color:var(--key);padding:24px 30px 40px}
+.cap{max-width:1632px;margin:0 auto 18px;font-size:14px;line-height:1.7}
+.cap h1{font-family:var(--d);font-weight:400;font-size:22px;margin:0 0 4px;letter-spacing:.02em}
+.cap p{margin:0}
+.row{display:flex;gap:24px;justify-content:center;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:8px;align-items:center}
+.col > span{font-size:13px;color:#4a4946}
+.phone{width:390px;height:844px;border-radius:44px;background:var(--key);padding:10px;box-shadow:0 18px 40px rgba(35,31,32,.25)}
+.scr{position:relative;width:100%;height:100%;border-radius:34px;overflow:hidden;background:var(--paper);display:flex;flex-direction:column}
+/* 紙のざらつき（全画面に薄く） */
+.scr::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.35;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+.status{height:44px;flex:none}
+.scroll{flex:1;overflow:hidden auto;padding:0 18px 28px}
+button{font:inherit;color:inherit;cursor:pointer}
+
+/* 地域数のスタンプ：全画面で同じ形 */
+.cnt{display:inline-flex;align-items:baseline;gap:2px;flex:none;font-size:12px;font-weight:700;white-space:nowrap}
+.cnt b{font-family:var(--d);font-weight:400;font-size:26px;line-height:1;letter-spacing:-.01em}
+
+/* ---- 1 トップ ---- */
+.brand{display:flex;align-items:center;justify-content:space-between;margin:6px 0 4px}
+.brand h2{font-family:var(--d);font-weight:400;font-size:33px;margin:0;letter-spacing:.02em;line-height:1.1}
+.inks{display:flex}
+.inks i{width:26px;height:26px;border-radius:50%;margin-left:-9px;mix-blend-mode:multiply;display:block}
+.lead{margin:0 0 16px;font-size:13px;color:var(--sub)}
+.hero{display:block;width:100%;border:2.5px solid var(--key);border-radius:6px;background:#fff;padding:0;text-align:left;position:relative;overflow:hidden}
+.hero svg{display:block;width:100%;height:250px}
+.hero .lab{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:2.5px solid var(--key);background:var(--paper)}
+.hero .lab > span:first-child{font-family:var(--d);font-size:22px}
+.blk{margin-top:22px}
+.entry{display:flex;width:100%;align-items:center;justify-content:space-between;border:2.5px solid var(--key);border-radius:6px;padding:16px 16px 16px 18px;text-align:left;box-shadow:4px 4px 0 var(--key)}
+.entry > span:first-child{font-family:var(--d);font-size:24px;line-height:1.15}
+.entry.k0{background:var(--i0)} .entry.k1{background:var(--i1)} .entry.k3{background:var(--i3)}
+.entry.k2{background:var(--i2);color:#fff}
+.prefs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
+.pref{border:2px solid var(--key);border-radius:5px;background:#fff;padding:11px 0;font-size:16px;font-weight:700}
+
+/* ---- 2 県の一覧 ---- */
+.bar{display:flex;align-items:center;gap:4px;padding:2px 12px 0 8px;font-size:14px;font-weight:700}
+.bar .bk{border:none;background:none;font-size:30px;line-height:1;padding:2px 8px 4px}
+.ptitle{margin:4px 0 2px;font-family:var(--d);font-weight:400;font-size:40px;letter-spacing:.03em}
+.psub{margin:0 0 12px;font-size:14px;color:var(--sub)}
+.st{display:flex;align-items:center;gap:12px;width:100%;border:none;border-bottom:2px solid var(--key);background:none;padding:7px 2px;text-align:left}
+.st:first-of-type{border-top:2px solid var(--key)}
+.st svg{width:46px;height:46px;flex:none}
+.st .nm{flex:1;font-size:18px;font-weight:700}
+.whole{margin-top:20px;display:block;width:100%;border:none;border-radius:6px;background:var(--key);color:#fff;padding:0;text-align:left;overflow:hidden;box-shadow:4px 4px 0 var(--i1)}
+.whole svg{display:block;width:100%;height:200px;background:#3a3536}
+.whole .lab{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 14px}
+.whole .lab > span:first-child{font-family:var(--d);font-size:24px}
+
+/* ---- 3 ゲーム ---- */
+.ghead{display:flex;align-items:center;gap:6px;padding:0 16px 8px 6px;border-bottom:2.5px solid var(--key)}
+.ghead .bk{border:none;background:none;font-size:30px;line-height:1;padding:2px 8px 4px}
+.ghead .t{flex:1;line-height:1.2}
+.ghead .t small{display:block;font-size:12px;color:var(--sub);font-weight:700}
+.ghead .t b{font-size:19px;font-weight:900}
+.timer{font-family:var(--d);font-size:30px;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.board{flex:1;position:relative}
+.board svg{position:absolute;inset:0;width:100%;height:100%}
+.gfoot{border-top:2.5px solid var(--key);padding:12px 16px 26px;display:flex;flex-direction:column;gap:12px}
+.cycle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);font-weight:700}
+.cycle .sw{display:flex;gap:4px}
+.cycle .sw svg{width:30px;height:20px;border:1.5px solid var(--key);border-radius:3px}
+.gline{display:flex;align-items:center;justify-content:space-between}
+.tog{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700}
+.sw-t{width:46px;height:28px;border-radius:14px;background:var(--key);position:relative;flex:none}
+.sw-t::after{content:"";position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff}
+.legend-conf{display:inline-block;width:26px;height:0;border-top:4px dashed var(--key);outline:2px solid #fff;outline-offset:-1px;vertical-align:middle}
+.left{font-size:13px;font-weight:700}
+
+/* ---- 4 クリア ---- */
+.poster{margin:6px 16px 0;background:#fff;border-radius:4px;padding:18px 18px 16px;position:relative;box-shadow:0 0 0 2.5px var(--key)}
+.poster svg{display:block;width:100%;height:420px}
+.poster .nm{margin-top:6px;font-size:15px;font-weight:900;letter-spacing:.04em}
+.poster .tm{font-family:var(--d);font-size:72px;line-height:1;letter-spacing:-.01em;margin-top:4px;
+  text-shadow:3px 2px 0 var(--i1)}   /* 版ずれ：黒の下にピンクがずれて刷られている */
+.poster .ok{position:absolute;right:18px;bottom:24px;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.poster .ok .inks i{width:18px;height:18px;margin-left:-6px}
+.poster .ok small{font-size:11px;color:var(--sub);font-weight:700}
+.cbtns{display:flex;flex-direction:column;gap:10px;padding:18px 16px 0}
+.cbtns .main{border:2.5px solid var(--key);border-radius:6px;background:var(--key);color:#fff;padding:15px 0;font-size:18px;font-weight:900;box-shadow:4px 4px 0 var(--i0)}
+.cbtns .two{display:flex;gap:10px}
+.cbtns .two button{flex:1;border:2.5px solid var(--key);border-radius:6px;background:#fff;padding:13px 0;font-size:16px;font-weight:700}
+
+.lbl{font-family:var(--g);font-weight:700;paint-order:stroke;stroke:#fff;stroke-linejoin:round;fill:var(--key);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="cap">
+  <h1>案 5：孔版印刷（リソグラフ）</h1>
+  <p>4 色を「リソグラフの 4 本のインク」として扱い、塗った地図そのものを刷り上がったポスターに見せる方向です。地図帳の紙面ではなく、黒の太い線とベタ塗りの印刷物の手触りで組みます。</p>
+  <p>色覚の違いに備えて、4 色は明るさをはっきり離したうえで、ピンクは白の水玉、グリーンは白の斜線を重ねて網でも見分けられるようにしました。同じ色の隣りあいは、どのインクにもない黒白の破線で示します。</p>
+  <p>地域数はすべての画面で太い数字のスタンプ。県全体だけは黒い版に 4 色刷りの地図を載せ、1 色刷りの部分ステージと見た目で分けています。</p>
+</div>
+
+<!-- 4 色の網。ピンクとグリーンは白の模様を重ねる -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <pattern id="p1" patternUnits="userSpaceOnUse" width="16" height="16"><rect width="16" height="16" fill="#FF5FA8"/><circle cx="4" cy="4" r="2.6" fill="#fff" fill-opacity=".7"/><circle cx="12" cy="12" r="2.6" fill="#fff" fill-opacity=".7"/></pattern>
+    <pattern id="p3" patternUnits="userSpaceOnUse" width="14" height="14" patternTransform="rotate(45)"><rect width="14" height="14" fill="#14A060"/><rect width="4" height="14" fill="#fff" fill-opacity=".55"/></pattern>
+    <pattern id="s1" patternUnits="userSpaceOnUse" width="6" height="6"><rect width="6" height="6" fill="#FF5FA8"/><circle cx="1.5" cy="1.5" r="1" fill="#fff" fill-opacity=".7"/><circle cx="4.5" cy="4.5" r="1" fill="#fff" fill-opacity=".7"/></pattern>
+    <pattern id="s3" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)"><rect width="5" height="5" fill="#14A060"/><rect width="1.5" height="5" fill="#fff" fill-opacity=".55"/></pattern>
+  </defs>
+</svg>
+
+<div class="row">
+  <!-- 1 トップ -->
+  <div class="col"><div class="phone"><div class="scr">
+    <div class="status"></div>
+    <div class="scroll" id="top">
+      <div class="brand"><h2>四色ぬりわけ</h2><div class="inks"><i style="background:var(--i0)"></i><i style="background:var(--i1)"></i><i style="background:var(--i2)"></i><i style="background:var(--i3)"></i></div></div>
+      <p class="lead">タップで色が変わります。となりどうしは別の色に。</p>
+      <button class="hero" id="hero"><svg id="m-japan"></svg><div class="lab"><span>日本地図</span><span class="cnt"><b>47</b>地域</span></div></button>
+      <div id="blocks"></div>
+    </div>
+  </div></div><span>1 トップ</span></div>
+
+  <!-- 2 県の一覧 -->
+  <div class="col"><div class="phone"><div class="scr">
+    <div class="status"></div>
+    <div class="bar"><button class="bk" aria-label="もどる">‹</button>中部地方</div>
+    <div class="scroll">
+      <h3 class="ptitle">愛知県</h3>
+      <p class="psub">県の地域区分ごとに 6 つ。最後に県全体。</p>
+      <div id="parts"></div>
+      <button class="whole"><svg id="m-whole"></svg><div class="lab"><span>愛知県全体</span><span class="cnt"><b>54</b>地域</span></div></button>
+    </div>
+  </div></div><span>2 県のステージ一覧</span></div>
+
+  <!-- 3 ゲーム -->
+  <div class="col"><div class="phone"><div class="scr">
+    <div class="status"></div>
+    <div class="ghead"><button class="bk" aria-label="もどる">‹</button><div class="t"><small>愛知県</small><b>名古屋市</b></div><div class="timer">0:47.3</div></div>
+    <div class="board"><svg id="m-game"></svg></div>
+    <div class="gfoot">
+      <div class="cycle">タップの順<div class="sw" id="sw"></div></div>
+      <div class="gline">
+        <div class="tog"><span class="sw-t"></span>同じ色の境目を示す <span class="legend-conf"></span></div>
+        <div class="left">のこり <span class="cnt"><b id="left">8</b>地域</span></div>
+      </div>
+    </div>
+  </div></div><span>3 ゲーム中</span></div>
+
+  <!-- 4 クリア -->
+  <div class="col"><div class="phone"><div class="scr">
+    <div class="status"></div>
+    <div class="poster">
+      <svg id="m-clear"></svg>
+      <div class="nm">愛知県 名古屋市</div>
+      <div class="tm">1:52.7</div>
+    </div>
+    <div class="cbtns">
+      <button class="main">共有</button>
+      <div class="two"><button>もう一度</button><button>ほかの地図</button></div>
+    </div>
+  </div></div><span>4 クリア</span></div>
+</div>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const FILL = ["#FFD93B", "url(#p1)", "#2F55B5", "url(#p3)"];   // ゲームとポスター（大きい地図）
+const FILLS = ["#FFD93B", "url(#s1)", "#2F55B5", "url(#s3)"];  // サムネイル（小さい地図）
+const INK = ["#FFD93B", "#FF5FA8", "#2F55B5", "#14A060"];
+const BLANK = "#E4E3DD", KEY = "#231F20";
+const map = (f) => fetch(`/maps/${f}`).then((r) => r.json());
+
+// pairs から 4 色の塗り分けを 1 つ作る（次数の大きい順に、使える色を試すバックトラック）
+function colour(m) {
+  const adj = Array.from({ length: m.n }, () => []);
+  for (const [a, b] of m.pairs) { adj[a].push(b); adj[b].push(a); }
+  const order = [...adj.keys()].sort((a, b) => adj[b].length - adj[a].length);
+  const c = new Array(m.n).fill(-1);
+  const go = (k) => {
+    if (k === order.length) return true;
+    const v = order[k];
+    for (let x = 0; x < 4; x++) {
+      if (adj[v].some((u) => c[u] === x)) continue;
+      c[v] = x; if (go(k + 1)) return true;
+    }
+    c[v] = -1; return false;
+  };
+  go(0); return c;
+}
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e); return e;
+}
+// box を少し広げて viewBox に。sw は境界線の太さ（地図座標）
+function draw(svg, m, fills, opt = {}) {
+  const [x, y, w, h] = opt.box || m.box, pad = (opt.pad ?? .04) * Math.max(w, h);
+  svg.setAttribute("viewBox", `${x - pad} ${y - pad} ${w + 2 * pad} ${h + 2 * pad}`);
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  const g = el("g", opt.shift ? { transform: `translate(${opt.shift})` } : {}, svg);
+  m.regions.forEach((r, i) => el("path", { d: r.d, fill: fills[i], stroke: fills[i] === BLANK ? BLANK : "none", "stroke-width": 1 }, g));
+  el("path", { d: m.border, fill: "none", stroke: opt.line || KEY, "stroke-width": opt.sw || 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+  // 外形線
+  if (opt.outline) m.regions.forEach((r) => el("path", { d: r.d, fill: "none", stroke: opt.line || KEY, "stroke-width": opt.outline, "stroke-linejoin": "round" }, svg));
+  return svg;
+}
+
+(async () => {
+  const DATA = await fetch("/src/data/stages.json").then((r) => r.json());
+
+  // ---- 1 トップ ----
+  const blocks = document.getElementById("blocks");
+  const short = (n) => (n === "北海道" ? n : n.replace(/[都府県]$/, ""));
+  DATA.blocks.forEach((b, k) => {
+    const d = document.createElement("div"); d.className = "blk";
+    d.innerHTML = `<button class="entry k${k % 4}"><span>${b.stage.name}</span><span class="cnt"><b>${b.stage.n}</b>地域</span></button>`
+      + `<div class="prefs">${b.prefs.map((p) => `<button class="pref">${short(p.name)}</button>`).join("")}</div>`;
+    blocks.appendChild(d);
+  });
+  const jp = await map("000.json"), jc = colour(jp);
+  // 沖縄を除いた本土側に寄せて切り取る
+  draw(document.getElementById("m-japan"), jp, jc.map((c) => FILLS[c]), { sw: 1.4, outline: 2.2, box: [175, 0, 665, 565], pad: .03 });
+
+  // ---- 2 愛知県 ----
+  const aichi = DATA.blocks.find((b) => b.name === "中部").prefs.find((p) => p.name === "愛知県");
+  const parts = document.getElementById("parts");
+  for (const [k, s] of aichi.stages.entries()) {
+    const m = await map(s.file);
+    const b = document.createElement("button"); b.className = "st";
+    b.innerHTML = `<svg></svg><span class="nm">${s.name.replace("愛知県 ", "")}</span><span class="cnt"><b>${s.n}</b>地域</span>`;
+    parts.appendChild(b);
+    // 部分ステージは 1 色刷りのシルエット
+    draw(b.querySelector("svg"), m, m.regions.map(() => INK[k % 4]), { sw: 0, outline: 14, pad: .08 });
+  }
+  const wm = await map(aichi.whole.file);
+  draw(document.getElementById("m-whole"), wm, colour(wm).map((c) => FILLS[c]), { sw: 2, outline: 3, line: KEY, pad: .05 });
+
+  // ---- 3 ゲーム（名古屋市） ----
+  const ng = await map("138.json"), sol = colour(ng);
+  const play = sol.map(() => -1);
+  // 約半分を塗り、1 か所だけ同じ色の隣りあいを作る
+  [0, 1, 4, 5, 6, 8, 11, 14].forEach((i) => (play[i] = sol[i]));
+  // 境目が長い組を選んで、衝突の線がはっきり見えるようにする
+  const cand = ng.pairs.filter(([a, b]) => play[a] >= 0 && play[b] < 0).sort((p, q) => q[2].length - p[2].length)[0];
+  play[cand[1]] = play[cand[0]];
+  const gsvg = draw(document.getElementById("m-game"), ng, play.map((c) => (c < 0 ? BLANK : FILL[c])), { sw: 2.2, pad: .03 });
+  const conf = ng.pairs.filter(([a, b]) => play[a] >= 0 && play[a] === play[b]).map((p) => p[2]).join("");
+  el("path", { d: conf, fill: "none", stroke: "#fff", "stroke-width": 15, "stroke-linecap": "round", "stroke-linejoin": "round" }, gsvg);
+  el("path", { d: conf, fill: "none", stroke: KEY, "stroke-width": 9, "stroke-dasharray": "14 9", "stroke-linecap": "butt" }, gsvg);
+  ng.regions.forEach((r, i) => { const t = el("text", { x: r.c[0], y: r.c[1], class: "lbl", "font-size": 22, "stroke-width": 5 }, gsvg); t.textContent = ng.names[i]; });
+  document.getElementById("left").textContent = play.filter((c) => c < 0).length;
+  const sw = document.getElementById("sw");
+  FILLS.forEach((f) => { const s = el("svg", { viewBox: "0 0 30 20" }, sw); el("rect", { width: 30, height: 20, fill: f }, s); });
+
+  // ---- 4 クリア：色の版を黒の線から少しずらして刷る ----
+  draw(document.getElementById("m-clear"), ng, sol.map((c) => FILL[c]), { sw: 2.6, pad: .02, shift: "5 -4" });
+})();
+</script>
+</body>
+</html>
