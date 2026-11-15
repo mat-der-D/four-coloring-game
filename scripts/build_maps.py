@@ -29,7 +29,7 @@ INDEX = ROOT / "src/data/stages.json"  # ステージの一覧（名前と地域
 MAPS_DIR = ROOT / "public/maps"  # ステージごとの地図
 SIZE = 1000.0  # 1 ステージの長辺（画面座標）
 SIMPLIFY = 2.0  # 簡略化の許容誤差（画面座標）。初期表示で 1px 未満
-SPECK = 6.0  # これより小さい島（面積、画面座標）は落とす
+MIN_ISLAND_KM2 = 0.05  # これより小さい島（実際の面積、km²）は落とす。人の住む島は残し、無人の岩は消えてよい（人間の判断、2026-11-15）
 
 
 # ---------- 束ねる ----------
@@ -82,8 +82,24 @@ def adjacency(geoms):
     return pairs
 
 
-def drop_specks(g, min_area=SPECK):
-    """画面で見えないほど小さい島を落とす（最大の部分は必ず残す）。"""
+def drop_specks(deg, plane):
+    """実際の面積が MIN_ISLAND_KM2 より小さい島を落とす（最大の部分は必ず残す）。
+
+    deg は経緯度の形、plane は同じ形を to_plane で平面に落としたもの（部分の並びが同じ）。
+    判定は deg の面積で行い、plane の部分を返す。ステージの縮尺には左右されないので、
+    日本地図や地方のような粗いステージでも、人の住む島は拡大すれば見える。
+    面積は度の面積を km² に直した近似（111.32² × cos(緯度)）。
+    """
+    dp = shapely.get_parts(deg)
+    pp = shapely.get_parts(plane)
+    km2 = shapely.area(dp) * 111.32**2 * np.cos(np.radians(shapely.get_y(shapely.centroid(dp))))
+    keep = (km2 >= MIN_ISLAND_KM2) | (np.arange(len(dp)) == np.argmax(km2))
+    kept = list(pp[keep])
+    return kept[0] if len(kept) == 1 else MultiPolygon(kept)
+
+
+def drop_tiny(g, min_area):
+    """面積（画面座標）が min_area より小さい部分を落とす（最大の部分は必ず残す）。サムネイル用。"""
     parts = list(g.geoms) if isinstance(g, MultiPolygon) else [g]
     big = max(parts, key=lambda p: p.area)
     keep = [p for p in parts if p.area >= min_area or p is big]
@@ -147,8 +163,8 @@ def four_colorable(n, pairs):
 
 
 CACHE_DIR = ROOT / "data-raw/cache"
-BUILD_VERSION = 3
-ADJ_VERSION = 1  # 隣接の求め方を変えたら上げる  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
+BUILD_VERSION = 4  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
+ADJ_VERSION = 1  # 隣接の求め方を変えたら上げる
 
 
 def build_stage(name, geoms, names=None):
@@ -157,7 +173,7 @@ def build_stage(name, geoms, names=None):
     gh = hashlib.sha1(f"{ADJ_VERSION}|{SIZE}".encode())
     for g in geoms:
         gh.update(shapely.to_wkb(g))
-    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIMPLIFY}|{SPECK}|{names}|{gh.hexdigest()}".encode())
+    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIMPLIFY}|{MIN_ISLAND_KM2}|{names}|{gh.hexdigest()}".encode())
     f = CACHE_DIR / f"{h.hexdigest()}.json"
     if f.exists():
         st = json.loads(f.read_text(encoding="utf-8"))
@@ -177,11 +193,12 @@ def build_stage(name, geoms, names=None):
 
 
 def build_stage_raw(name, geoms, names=None, pairs=None):
+    deg = geoms
     geoms = to_plane(geoms)
     if pairs is None:
         pairs = adjacency(geoms)
     orig = geoms
-    geoms = [drop_specks(g) for g in geoms]
+    geoms = [drop_specks(d, g) for d, g in zip(deg, geoms)]
     simp = list(shapely.coverage_simplify(np.array(geoms, dtype=object), SIMPLIFY))
     simp = [g if g.geom_type in ("Polygon", "MultiPolygon") else g.buffer(0) for g in simp]
     xs0, ys0, xs1, ys1 = shapely.total_bounds(simp)
@@ -298,7 +315,7 @@ def thumb_geoms(geoms, rel):
     P = to_plane(list(geoms))
     mb = main_box(P)
     tol = rel * max(mb[2], mb[3])
-    P = [drop_specks(g, tol * tol) for g in P]
+    P = [drop_tiny(g, tol * tol) for g in P]  # サムネイルは拡大しないので、画面で見えない島は落とす
     return list(shapely.coverage_simplify(np.array(P, dtype=object), tol))
 
 
