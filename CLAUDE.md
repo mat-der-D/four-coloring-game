@@ -6,7 +6,9 @@
 - **このリポジトリに限り**、Claude の判断で main へ直接 commit・push してよい。PR やマージの承認待ちは不要
 - 範囲はこのリポジトリだけ。他のリポジトリ、外部サービスへの公開（Cloudflare の設定変更など）、force push、履歴の書き換えには及ばない
 - CLAUDE.md も自由に編集してよい
-- **注意**: 本番は Cloudflare Pages の GitHub 連携（docs/DEPLOY.md）。連携すると main への push がそのまま本番への公開になり、上の 2 つの決まりがぶつかる。連携後に main へ push してよいかは、人間の決定を待つ（2026-11-15 時点で未決）。決まるまでは、main 以外のブランチに push して、プレビューの URL で確かめる
+- **main への push は本番への公開**（Cloudflare Pages の GitHub 連携、docs/DEPLOY.md）。それでも main への push は Claude の判断でしてよい（人間の許可、2026-11-15）。push のたびに本番の配置が走ることを勘案し、確かめてから push する。確かめが要る変更は、別のブランチに push してプレビューの URL（`https://〈ブランチ名〉.four-coloring-game.pages.dev/`）で見てから main に入れる
+- 県のサイトなど外部への取得は、相手の robots.txt と利用条件で許されている範囲なら行ってよい（人間の許可、2026-11-15）。直列・3 秒以上の間隔は守る
+- 時間のかかる作業（地図の加工、調査など）はサブエージェントに任せ、人間と話せる状態を保つ（人間の指示、2026-11-15）
 - 開発用の環境（`four-coloring-game-dev`）への配置は、人間の依頼で行ってきた（`npm run deploy:dev`）
 
 ## 開発
