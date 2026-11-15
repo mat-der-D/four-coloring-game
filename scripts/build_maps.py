@@ -5,11 +5,13 @@
 
 使い方: uv run python scripts/build_maps.py
 入力  : data-raw/n03-2025/N03-20250101.shp（docs/DATA.md 参照）
+出力  : src/data/stages.json（一覧）と public/maps/NNN.json（ステージごと）
 """
 import hashlib
 import json
 import math
 import sys
+import time
 from pathlib import Path
 
 import geopandas as gpd
@@ -23,7 +25,8 @@ from shapely.ops import unary_union
 ROOT = Path(__file__).resolve().parent.parent
 SHP = ROOT / "data-raw/n03-2025/N03-20250101.shp"
 CACHE = ROOT / "data-raw/n03-2025/units.gpkg"
-OUT = ROOT / "src/data/real-maps.json"
+INDEX = ROOT / "src/data/stages.json"  # ステージの一覧（名前と地域数）
+MAPS_DIR = ROOT / "public/maps"  # ステージごとの地図
 SIZE = 1000.0  # 1 ステージの長辺（画面座標）
 SIMPLIFY = 0.8  # 簡略化の許容誤差（画面座標）
 
@@ -96,7 +99,7 @@ def path_of_polygons(g):
 def path_of_lines(g):
     if g.is_empty:
         return ""
-    lines = [g] if g.geom_type == "LineString" else [x for x in getattr(g, "geoms", []) if x.geom_type == "LineString"]
+    lines = [x for x in shapely.get_parts(shapely.get_parts(g)) if x.geom_type in ("LineString", "LinearRing")]
     out = []
     for ln in lines:
         c = np.round(np.asarray(ln.coords), 1)
@@ -139,12 +142,13 @@ def four_colorable(n, pairs):
 
 
 CACHE_DIR = ROOT / "data-raw/cache"
+BUILD_VERSION = 2  # ステージを作る処理を変えたら上げる（キャッシュを無効にする）
 
 
 def build_stage(name, geoms, names=None):
     """build_stage_raw の結果を、入力の形と設定が同じならキャッシュから返す。"""
     geoms = list(geoms)
-    h = hashlib.sha1(f"{name}|{SIZE}|{SIMPLIFY}|{names}".encode())
+    h = hashlib.sha1(f"{BUILD_VERSION}|{name}|{SIZE}|{SIMPLIFY}|{names}".encode())
     for g in geoms:
         h.update(shapely.to_wkb(g))
     f = CACHE_DIR / f"{h.hexdigest()}.json"
@@ -152,7 +156,9 @@ def build_stage(name, geoms, names=None):
         st = json.loads(f.read_text(encoding="utf-8"))
         print(f"  {name}: 地域 {st['n']}（キャッシュ）", flush=True)
         return st
+    t = time.time()
     st = build_stage_raw(name, geoms, names)
+    print(f"    ({time.time() - t:.0f} 秒)", flush=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
     return st
@@ -161,6 +167,7 @@ def build_stage(name, geoms, names=None):
 def build_stage_raw(name, geoms, names=None):
     geoms = to_plane(geoms)
     pairs = adjacency(geoms)
+    orig = geoms
     geoms = [drop_specks(g) for g in geoms]
     simp = list(shapely.coverage_simplify(np.array(geoms, dtype=object), SIMPLIFY))
     simp = [g if g.geom_type in ("Polygon", "MultiPolygon") else g.buffer(0) for g in simp]
@@ -173,6 +180,8 @@ def build_stage_raw(name, geoms, names=None):
     for a, b in pairs:
         sh = simp[a].boundary.intersection(simp[b].buffer(0.3))
         d = path_of_lines(sh)
+        if d == "":  # 簡略化や小島の除去で接する線が消えたときは、元の形から取る
+            d = path_of_lines(orig[a].boundary.intersection(orig[b].buffer(0.004)).simplify(SIMPLIFY))
         empty += d == ""
         pair_out.append([a, b, d])
     border = path_of_lines(unary_union([g.boundary for g in simp]))
@@ -228,6 +237,9 @@ def honpen(ward, city, pref_name, spec):
     return stages, upper, whole
 
 
+MAX_UNSPLIT = 25  # これ以下の県は分けずに 1 ステージ（仕様書の目安の上限）
+
+
 def main():
     sys.path.insert(0, str(Path(__file__).parent))
     from areas import AREAS
@@ -244,20 +256,60 @@ def main():
         chiho.append(build_stage(nm, sel.geometry))
 
     chiiki, ken, compare = [], [], []
-    for pref_name, spec in AREAS.items():
-        stages, upper, whole = honpen(ward, city, pref_name, spec)
-        chiiki.append({"pref": pref_name, "stages": stages})
-        ken.append(whole)
-        compare += upper
-
     hk = ward[ward.N03_001 == "北海道"]
+    for pref_name in pref.sort_values("N03_007").N03_001:  # 行政区域コード順
+        if pref_name in AREAS:
+            stages, upper, whole = honpen(ward, city, pref_name, AREAS[pref_name])
+            chiiki.append({"pref": pref_name, "stages": stages})
+            ken.append(whole)
+            compare += upper
+        elif pref_name == "北海道":
+            # 案: 振興局ごと（データの N03_002）。政令市（札幌）は他と同じ振興局に入るので市で 1 つ
+            hc = city[city.N03_001 == "北海道"]
+            stages = [build_stage(f"北海道 {k}", g.geometry, list(g.N03_004)) for k, g in hc.groupby("N03_002", sort=False)]
+            chiiki.append({"pref": pref_name, "stages": stages})
+        else:
+            cu = city[(city.N03_001 == pref_name) & ~is_undetermined(city)]
+            if len(cu) > MAX_UNSPLIT:
+                print(f"  ! {pref_name}: {len(cu)} 市区町村。対応表が無いので飛ばす")
+                continue
+            chiiki.append({"pref": pref_name, "stages": [build_stage(pref_name, cu.geometry, list(cu.N03_004))]})
+
     compare.append(build_stage("北海道（振興局）", merge_by(hk, ["N03_002"]).geometry))
     compare.append(build_stage("北海道（市区町村）", merge_by(hk, ["N03_001", "N03_002", "N03_003", "N03_004"]).geometry))
 
     zen = build_stage("日本地図（47都道府県）", pref.geometry)
     data = {"chiho": chiho, "chiiki": chiiki, "ken": ken, "compare": compare, "zenkoku": zen}
-    OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"書き出し: {OUT} ({OUT.stat().st_size // 1000}KB)")
+    write_split(data)
+
+
+def write_split(data):
+    """ステージごとのファイル（public/maps/）と、一覧（src/data/stages.json）に分けて書く。
+
+    一覧には名前と地域数だけを入れ、ゲームはステージを選んだときにそのファイルを読む。
+    """
+    MAPS_DIR.mkdir(parents=True, exist_ok=True)
+    for old in MAPS_DIR.glob("*.json"):
+        old.unlink()  # 生成物。消してもこのスクリプトで作り直せる
+    total, count = 0, 0
+
+    def put(st):
+        nonlocal total, count
+        f = MAPS_DIR / f"{count:03d}.json"
+        f.write_text(json.dumps(st, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        total += f.stat().st_size
+        count += 1
+        return {"name": st["name"], "n": st["n"], "file": f.name}
+
+    index = {
+        "chiho": [put(s) for s in data["chiho"]],
+        "chiiki": [{"pref": c["pref"], "stages": [put(s) for s in c["stages"]]} for c in data["chiiki"]],
+        "ken": [put(s) for s in data["ken"]],
+        "compare": [put(s) for s in data["compare"]],
+        "zenkoku": put(data["zenkoku"]),
+    }
+    INDEX.write_text(json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"書き出し: {INDEX} と {MAPS_DIR}/ に {count} ステージ（計 {total // 1000}KB）")
 
 
 if __name__ == "__main__":

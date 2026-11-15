@@ -1,5 +1,5 @@
 import "./style.css";
-import DATA from "./data/real-maps.json";
+import DATA from "./data/stages.json";
 const STAGES = [];
 const COLORS = ["#F2C14E","#7BC47F","#5E9BE0","#EA8DB2"];
 const BLANK = "#ece8de";
@@ -41,8 +41,13 @@ addStage(DATA.zenkoku);
 
 // ---------- game state ----------
 let S, color, adj, pairD, conflicts, t0, timerId, done, view;
-function start(i) {
+async function start(i) {
   S = STAGES[i];
+  if (!S.regions) {
+    // 地図はステージごとのファイル（public/maps/）。選んだときに読む
+    const res = await fetch(`${import.meta.env.BASE_URL}maps/${S.file}`);
+    Object.assign(S, await res.json());
+  }
   color = new Array(S.n).fill(-1);
   adj = Array.from({ length: S.n }, () => []);
   pairD = new Map();
