@@ -113,7 +113,7 @@ export const stageTitle = (stage) => parts(stage).filter(Boolean).join(" ");
 export const shareText = ({ title, time }) => `${title}を ${time} で塗り分けた！\n#四色ぬりわけ`;
 
 // ---------- SNS の投稿画面 ----------
-// どれも渡せるのは文面と URL だけ（画像は渡せない）。画像付きで投稿するには、端末の共有か、画像の保存・コピーが要る
+// どれも渡せるのは文面と URL だけ（画像は渡せない）。画像付きで投稿するには、端末の共有か、画像の保存・コピーが必要
 export const SNS = [
   { id: "x", icon: siX, color: "#000000", href: (text, url) => `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
   { id: "line", icon: siLine, color: "#06C755", href: (text, url) => `https://line.me/R/share?text=${encodeURIComponent(text + "\n" + url)}` },

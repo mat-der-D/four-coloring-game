@@ -8,7 +8,7 @@
 | 開発用 | Cloudflare Workers の静的アセット（Worker `four-coloring-game-dev`、設定は `wrangler.jsonc`） | https://four-coloring-game-dev.smooth-pudding-1017.workers.dev/ | 手元で `npm run deploy:dev`（要 `npx wrangler login`） |
 
 - 共有の文面に入れる URL は、どちらの環境でも本番の URL（`src/share.js` の `SHARE_URL`）
-- 地図のデータ（`public/maps/`、`public/thumbs/`、`src/data/stages.json`）はリポジトリに入れてある。配置のときに地図の加工（`scripts/build_maps.py`、元データが要る）は走らない。地図を作り直したら、生成物ごとコミットする
+- 地図のデータ（`public/maps/`、`public/thumbs/`、`src/data/stages.json`）はリポジトリに入れてある。配置のときに地図の加工（`scripts/build_maps.py`、元データが必要）は走らない。地図を作り直したら、生成物ごとコミットする
 
 ## 本番が Pages である理由
 
@@ -31,5 +31,5 @@
 
 ## 鍵の扱い
 
-- 本番は GitHub 連携で配置するので、手元に Cloudflare の鍵は要らない
+- 本番は GitHub 連携で配置するので、手元に Cloudflare の鍵はいらない
 - 開発用の配置に使う `wrangler login` は、この PC にアカウント全体を操作できる広い権限の鍵を置く。使い終わったら `npx wrangler logout` で消せる。権限を絞りたいときは、「Workers Scripts: Edit」だけの API トークンを作り、環境変数 `CLOUDFLARE_API_TOKEN` で渡す
