@@ -32,6 +32,10 @@ DATA.chiiki.forEach(({ pref, stages }) => {
   if (whole) addStage(whole, `まるごと <span class="adv">上級</span>`, grp);
   $("list").appendChild(grp);
 });
+if (DATA.compare && DATA.compare.length) {
+  addSection("比較", "分け方の比較用（試作のみ）");
+  DATA.compare.forEach((s) => addStage(s));
+}
 addSection("全国", "47都道府県");
 addStage(DATA.zenkoku);
 

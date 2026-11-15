@@ -6,6 +6,7 @@
 使い方: uv run python scripts/build_maps.py
 入力  : data-raw/n03-2025/N03-20250101.shp（docs/DATA.md 参照）
 """
+import hashlib
 import json
 import math
 import sys
@@ -137,8 +138,28 @@ def four_colorable(n, pairs):
     return col if go(n) else None
 
 
+CACHE_DIR = ROOT / "data-raw/cache"
+
+
 def build_stage(name, geoms, names=None):
-    geoms = to_plane(list(geoms))
+    """build_stage_raw の結果を、入力の形と設定が同じならキャッシュから返す。"""
+    geoms = list(geoms)
+    h = hashlib.sha1(f"{name}|{SIZE}|{SIMPLIFY}|{names}".encode())
+    for g in geoms:
+        h.update(shapely.to_wkb(g))
+    f = CACHE_DIR / f"{h.hexdigest()}.json"
+    if f.exists():
+        st = json.loads(f.read_text(encoding="utf-8"))
+        print(f"  {name}: 地域 {st['n']}（キャッシュ）", flush=True)
+        return st
+    st = build_stage_raw(name, geoms, names)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+    return st
+
+
+def build_stage_raw(name, geoms, names=None):
+    geoms = to_plane(geoms)
     pairs = adjacency(geoms)
     geoms = [drop_specks(g) for g in geoms]
     simp = list(shapely.coverage_simplify(np.array(geoms, dtype=object), SIMPLIFY))
@@ -179,7 +200,38 @@ CHIHO = {
 }
 
 
+def honpen(ward, city, pref_name, spec):
+    """対応表から本編ステージを作る。全市町村がちょうど 1 地域に入っているかも確かめる。"""
+    cu = city[(city.N03_001 == pref_name) & (city.N03_004 != "所属未定地")]
+    listed = [m for a in spec["areas"] for m in a["munis"]]
+    missing = set(cu.N03_004) - set(listed)
+    unknown = set(listed) - set(cu.N03_004)
+    dup = {m for m in listed if listed.count(m) > 1}
+    if missing or unknown or dup:
+        raise SystemExit(f"{pref_name} の対応表が合わない: 未割当 {missing} / データに無い {unknown} / 重複 {dup}")
+
+    def units(a):
+        src = ward if a.get("wards") else city
+        return src[(src.N03_001 == pref_name) & src.N03_004.isin(a["munis"])]
+
+    stages = []
+    for a in spec["areas"]:
+        u = units(a)
+        stages.append(build_stage(f"{pref_name} {a['name']}", u.geometry, list(u.N03_005.fillna(u.N03_004)) if a.get("wards") else list(u.N03_004)))
+    upper = []
+    byname = {a["name"]: a for a in spec["areas"]}
+    for up in spec.get("upper", []):
+        munis = [m for nm in up["of"] for m in byname[nm]["munis"]]
+        u = city[(city.N03_001 == pref_name) & city.N03_004.isin(munis)]
+        upper.append(build_stage(f"{pref_name} {up['name']}（上の階層）", u.geometry, list(u.N03_004)))
+    whole = build_stage(pref_name, cu.geometry, list(cu.N03_004))
+    return stages, upper, whole
+
+
 def main():
+    sys.path.insert(0, str(Path(__file__).parent))
+    from areas import AREAS
+
     ward = load_units()  # 区ごと（コード単位）
     city = merge_by(ward, ["N03_001", "N03_003", "N03_004"])  # 政令市は市でまとめる
     is_undetermined = lambda d: d["N03_004"] == "所属未定地"
@@ -191,23 +243,19 @@ def main():
         sel = pref[pref.N03_001.isin(prefs)]
         chiho.append(build_stage(nm, sel.geometry))
 
-    def of(df, p, excl_undetermined=True):
-        d = df[df.N03_001 == p]
-        return d[~is_undetermined(d)] if excl_undetermined else d
+    chiiki, ken, compare = [], [], []
+    for pref_name, spec in AREAS.items():
+        stages, upper, whole = honpen(ward, city, pref_name, spec)
+        chiiki.append({"pref": pref_name, "stages": stages})
+        ken.append(whole)
+        compare += upper
 
-    chiiki = []
-    one = lambda pref_name, stage: chiiki.append({"pref": pref_name, "stages": [stage]})
-    one("香川県", build_stage("香川県（市町）", of(city, "香川県").geometry))
-    one("神奈川県", build_stage("神奈川県（区ごと）", of(ward, "神奈川県").geometry))
-    one("神奈川県", build_stage("神奈川県（政令市はまとめる）", of(city, "神奈川県").geometry))
-    one("愛知県", build_stage("愛知県（所属未定地なし）", of(city, "愛知県").geometry))
-    one("愛知県", build_stage("愛知県（所属未定地あり）", of(city, "愛知県", False).geometry))
     hk = ward[ward.N03_001 == "北海道"]
-    one("北海道", build_stage("北海道（振興局）", merge_by(hk, ["N03_002"]).geometry))
-    one("北海道", build_stage("北海道（市区町村）", merge_by(hk, ["N03_001", "N03_002", "N03_003", "N03_004"]).geometry))
+    compare.append(build_stage("北海道（振興局）", merge_by(hk, ["N03_002"]).geometry))
+    compare.append(build_stage("北海道（市区町村）", merge_by(hk, ["N03_001", "N03_002", "N03_003", "N03_004"]).geometry))
 
     zen = build_stage("日本地図（47都道府県）", pref.geometry)
-    data = {"chiho": chiho, "chiiki": chiiki, "ken": [], "zenkoku": zen}
+    data = {"chiho": chiho, "chiiki": chiiki, "ken": ken, "compare": compare, "zenkoku": zen}
     OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"書き出し: {OUT} ({OUT.stat().st_size // 1000}KB)")
 
