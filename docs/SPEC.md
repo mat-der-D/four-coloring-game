@@ -38,7 +38,7 @@
 共有画像に載せるのは地図・ステージ名・タイムの 3 つだけ。Web Share API、使えなければ画像ダウンロード。
 
 ## 公開
-開発用の環境: Cloudflare Workers の `four-coloring-game-dev`（`npm run deploy:dev` で配置。設定は `wrangler.jsonc`）。本番は GitHub 連携で、手元に Cloudflare の鍵を置かない形にする予定
+**変更（2026-11-15）**: 本番は Cloudflare **Pages**（GitHub 連携、https://four-coloring.smooth-pudding.net/）。`smooth-pudding.net` の DNS は XServer にあり、VPS のサービスが動いているため、DNS を Cloudflare に移さずに済む Pages にした（Workers のカスタムドメインは DNS が Cloudflare にあることが前提）。開発用は Workers の `four-coloring-game-dev`。詳しくは `docs/DEPLOY.md`
 
 GitHub（公開リポジトリ）→ Cloudflare Workers の静的アセット、自分のドメイン。
 
