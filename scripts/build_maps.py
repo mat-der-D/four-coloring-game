@@ -258,6 +258,70 @@ def honpen(ward, city, pref_name, spec):
     return stages, upper, whole
 
 
+# ---------- サムネイル（選択画面の小さな地図。塗らずに輪郭だけ） ----------
+THUMB_DIR = ROOT / "public/thumbs"  # 県ごとのサムネイル（県のページを開いたときに読む）
+
+
+def ipath_polys(g):
+    """整数に丸めた多角形のパス（サムネイル用）。"""
+    out = []
+    for poly in (g.geoms if isinstance(g, MultiPolygon) else [g]):
+        for ring in [poly.exterior, *poly.interiors]:
+            c = np.round(np.asarray(ring.coords)[:-1]).astype(int)
+            if len(c) >= 3:
+                out.append("M" + "L".join(f"{x} {y}" for x, y in c) + "Z")
+    return "".join(out)
+
+
+def ipath_lines(g):
+    out = []
+    for ln in shapely.get_parts(shapely.get_parts(g)):
+        if ln.geom_type in ("LineString", "LinearRing"):
+            c = np.round(np.asarray(ln.coords)).astype(int)
+            if len(c) >= 2:
+                out.append("M" + "L".join(f"{x} {y}" for x, y in c))
+    return "".join(out)
+
+
+def main_box(geoms, pad=0.04):
+    """離れた小島（小笠原など）を外した、本土の範囲。最大の陸の 2% 未満の島は範囲に入れない。"""
+    parts = [q for g in geoms for q in (g.geoms if isinstance(g, MultiPolygon) else [g])]
+    big = max(q.area for q in parts)
+    x0, y0, x1, y1 = shapely.total_bounds([q for q in parts if q.area >= big * 0.02])
+    return box_list(x0, y0, x1, y1, pad)
+
+
+def box_list(x0, y0, x1, y1, pad=0.04):
+    pw, ph = (x1 - x0) * pad, (y1 - y0) * pad
+    return [round(x0 - pw), round(y0 - ph), round(x1 - x0 + 2 * pw), round(y1 - y0 + 2 * ph)]
+
+
+def thumb_geoms(geoms, tol):
+    P = [drop_specks(g, tol * tol) for g in to_plane(list(geoms))]
+    return list(shapely.coverage_simplify(np.array(P, dtype=object), tol))
+
+
+def thumb(geoms, tol=4.0):
+    """地図の輪郭（陸と境界線）と、本土に寄せた表示範囲。"""
+    S = thumb_geoms(geoms, tol)
+    return {"vb": main_box(S), "land": "".join(ipath_polys(g) for g in S), "lines": ipath_lines(unary_union([g.boundary for g in S]))}
+
+
+def thumb_pref(geoms, masks, tol=4.0):
+    """県全体の輪郭と、ステージごとに強調する部分。masks はステージごとの「どの市町村が入るか」。"""
+    S = thumb_geoms(geoms, tol)
+    t = {"vb": main_box(S), "land": "".join(ipath_polys(g) for g in S), "lines": ipath_lines(unary_union([g.boundary for g in S])), "parts": []}
+    mb = t["vb"]
+    for m in masks:
+        sel = [g for g, on in zip(S, m) if on]
+        x0, y0, x1, y1 = shapely.total_bounds(sel)
+        # 強調する部分が本土の範囲の外（離島）にあるときは、範囲を広げて見えるようにする
+        x0, y0 = min(x0, mb[0]), min(y0, mb[1])
+        x1, y1 = max(x1, mb[0] + mb[2]), max(y1, mb[1] + mb[3])
+        t["parts"].append({"d": "".join(ipath_polys(g) for g in sel), "vb": box_list(x0, y0, x1, y1, 0.02)})
+    return t
+
+
 MAX_UNSPLIT = 25  # これ以下の県は分けずに 1 ステージ（仕様書の目安の上限）
 
 
@@ -275,32 +339,44 @@ def main():
         """1 県ぶんのステージ。分けた県は最後に県全体（まるごと）を付ける。"""
         if pref_name in AREAS:
             stages, _upper, whole = honpen(ward, city, pref_name, AREAS[pref_name])
-            return {"name": pref_name, "stages": stages, "whole": whole}
+            cu = city[(city.N03_001 == pref_name) & ~is_undetermined(city)]
+            masks = [list(cu.N03_004.isin(a["munis"])) for a in AREAS[pref_name]["areas"]]
+            return {"name": pref_name, "stages": stages, "whole": whole, "thumb": thumb_pref(cu.geometry, masks)}
         if pref_name == "北海道":
             # 案: 振興局ごと（データの N03_002）。政令市（札幌）は他と同じ振興局に入るので市で 1 つ
             hc = city[(city.N03_001 == "北海道") & ~is_undetermined(city)]
-            stages = [build_stage(f"北海道 {k}", g.geometry, list(g.N03_004)) for k, g in hc.groupby("N03_002", sort=False)]
-            return {"name": pref_name, "stages": stages, "whole": build_stage("北海道", hc.geometry, list(hc.N03_004))}
+            groups = list(hc.groupby("N03_002", sort=False))
+            stages = [build_stage(f"北海道 {k}", g.geometry, list(g.N03_004)) for k, g in groups]
+            masks = [list(hc.N03_002 == k) for k, _ in groups]
+            return {"name": pref_name, "stages": stages, "whole": build_stage("北海道", hc.geometry, list(hc.N03_004)), "thumb": thumb_pref(hc.geometry, masks)}
         cu = city[(city.N03_001 == pref_name) & ~is_undetermined(city)]
         if len(cu) > MAX_UNSPLIT:
             raise SystemExit(f"{pref_name}: {len(cu)} 市区町村あるのに対応表（scripts/areas.py）が無い")
-        return {"name": pref_name, "stages": [build_stage(pref_name, cu.geometry, list(cu.N03_004))], "whole": None}
+        return {"name": pref_name, "stages": [build_stage(pref_name, cu.geometry, list(cu.N03_004))], "whole": None, "thumb": thumb_pref(cu.geometry, [[True] * len(cu)])}
 
     blocks = []
     for bname, prefs in BLOCKS.items():
         members = BLOCK_STAGE.get(bname, prefs)
-        stage = None
+        stage, stage_thumb = None, None
         if bname == "北海道":
             # 北海道は 1 道だけなので、地方の入口は振興局で分けた北海道全体にする
             hk = merge_by(ward[(ward.N03_001 == "北海道") & ~is_undetermined(ward)], ["N03_002"])
             stage = build_stage("北海道（振興局）", hk.geometry, list(hk.N03_002))
+            stage_thumb = thumb(hk.geometry, 12.0)
         elif len(members) > 1:
             sel = pref[pref.N03_001.isin(members)]
             stage = build_stage(f"{BLOCK_STAGE_NAME.get(bname, bname)}地方", sel.geometry, list(sel.N03_001))
-        blocks.append({"name": bname, "stage": stage, "prefs": [pref_stages(p) for p in prefs]})
+            stage_thumb = thumb(sel.geometry, 12.0)
+        codes = {r.N03_001: r.N03_007[:2] for r in pref.itertuples()}
+        bp = []
+        for pn in prefs:
+            ps = pref_stages(pn)
+            ps["code"] = codes[pn]
+            bp.append(ps)
+        blocks.append({"name": bname, "stage": stage, "thumb": stage_thumb, "prefs": bp})
 
     zen = build_stage("日本地図", pref.geometry, list(pref.N03_001))
-    write_split({"zenkoku": zen, "blocks": blocks})
+    write_split({"zenkoku": zen, "zen_thumb": thumb(pref.geometry, 4.0), "blocks": blocks})
 
 
 def write_split(data):
@@ -323,18 +399,30 @@ def write_split(data):
         count += 1
         return {"name": st["name"], "n": st["n"], "file": f.name}
 
+    THUMB_DIR.mkdir(parents=True, exist_ok=True)
+    tsize = 0
+
+    def put_thumb(p):
+        nonlocal tsize
+        f = THUMB_DIR / f"{p['code']}.json"
+        f.write_text(json.dumps(p["thumb"], ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        tsize += f.stat().st_size
+        return f.name
+
     index = {
-        "zenkoku": put(data["zenkoku"]),
+        "zenkoku": {**put(data["zenkoku"]), "thumb": data["zen_thumb"]},
         "blocks": [
             {
                 "name": b["name"],
                 "stage": put(b["stage"]),
-                "prefs": [{"name": p["name"], "stages": [put(s) for s in p["stages"]], "whole": put(p["whole"])} for p in b["prefs"]],
+                "thumb": b["thumb"],
+                "prefs": [{"name": p["name"], "stages": [put(s) for s in p["stages"]], "whole": put(p["whole"]), "thumb": put_thumb(p)} for p in b["prefs"]],
             }
             for b in data["blocks"]
         ],
     }
-    INDEX.write_text(json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
+    INDEX.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"サムネイル: 一覧に {INDEX.stat().st_size // 1000}KB、県ごと {THUMB_DIR}/ に計 {tsize // 1000}KB")
     print(f"書き出し: {INDEX} と {MAPS_DIR}/ に {count} ステージ（計 {total // 1000}KB）")
 
 

@@ -2,35 +2,64 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>四色ぬりわけ</title>
 <link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-<div id="sel" class="screen on">
-  <div id="sel-head">
-    <h1>四色ぬりわけ<span class="dots"><i style="background:#F2C14E"></i><i style="background:#7BC47F"></i><i style="background:#5E9BE0"></i><i style="background:#EA8DB2"></i></span></h1>
-    <p>タップで色が変わります。隣どうしを違う色に。<br>（試作版。地域の区分けは確認中です）</p>
-  </div>
-  <div id="pref-head" hidden><button id="pref-back" aria-label="もどる">‹</button><h2 id="pref-name"></h2></div>
-  <div id="list"></div>
-  <p class="credit">出典：<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2025.html">国土交通省 国土数値情報（行政区域データ 2025年）</a>をもとに加工して作成</p>
+<!-- 選択画面: 日本地図 → 地方（入口のステージ）→ 都道府県 -->
+<div id="sel" class="screen on"><div class="scroll" id="top"></div></div>
+
+<!-- 都道府県のステージ一覧 -->
+<div id="pref" class="screen">
+  <div class="bar"><button class="back" id="pref-back" aria-label="もどる">‹</button><h2 id="pref-name"></h2><span class="sub" id="pref-sub"></span></div>
+  <div class="scroll"><div class="list" id="pref-list"></div></div>
 </div>
 
+<!-- ゲーム -->
 <div id="game" class="screen">
-  <header><button id="back" aria-label="もどる">‹</button><div id="title"></div><div id="timer">0:00.0</div></header>
-  <div id="stage">
-    <svg id="map" xmlns="http://www.w3.org/2000/svg"><g id="vp"><g id="regs"></g><path id="border"/><path id="conf"/></g></svg>
-    <div id="toast"></div>
-    <div id="clear">
-      <div id="badge"><div class="nm"></div><div class="tm"></div></div>
-      <div class="btns"><button id="b-share" class="main">共有</button><button id="b-again">もう一度</button><button id="b-list">ほかの地図</button></div>
-    </div>
+  <div class="gh">
+    <button class="back" id="back" aria-label="もどる">‹</button>
+    <div class="t"><span id="g-pref"></span><b id="title"></b></div>
+    <div class="timer num" id="timer">0:00.0</div>
   </div>
-  <footer><label class="tog"><input type="checkbox" id="hl" checked>境界ハイライト</label><span id="left"></span></footer>
+  <div class="field" id="stage">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg"><defs id="pats"></defs><g id="vp"><g id="regs"></g><path id="border"/><g id="conf"></g></g></svg>
+    <div class="note" id="note" hidden><span class="x">×</span>同じ色の隣りあい <b class="num" id="nconf"></b> か所</div>
+    <div id="toast"></div>
+  </div>
+  <div class="gf">
+    <div class="r1">
+      <div class="legend" id="legend"><span>タップで順に</span></div>
+      <div class="left" id="left"></div>
+    </div>
+    <label class="tog">
+      <span class="k"><span class="cx"><span class="ln"></span><span class="x">×</span></span>同じ色の隣りあいを表示</span>
+      <input type="checkbox" id="hl" checked><span class="sw" aria-hidden="true"></span>
+    </label>
+  </div>
 </div>
 
-<div id="share"><div class="sh-box"><img id="sh-img" alt="共有画像"><p>画像を長押しして保存・共有できます<br>（試作版のため共有ボタンは画像表示のみ）</p><button id="sh-close">閉じる</button></div></div>
+<!-- クリア: 共有画像と同じ見た目 -->
+<div id="clear" class="screen">
+  <div class="clr">
+    <div class="plate"><div class="in">
+      <div class="pn" id="c-pref"></div>
+      <div class="nm" id="c-name"></div>
+      <svg id="c-map" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="ft">
+        <div class="tm num"><small>タイム</small><span id="c-time"></span></div>
+        <div class="by"><span class="mark" id="c-mark"></span>四色ぬりわけ</div>
+      </div>
+    </div></div>
+    <div class="acts"><button class="main" id="b-share">共有</button><button id="b-again">もう一度</button><button id="b-list">ほかの地図</button></div>
+  </div>
+</div>
+
+<div id="share"><div class="sh-box"><img id="sh-img" alt="共有画像"><p>画像を長押しして保存・共有できます</p><button id="sh-close">閉じる</button></div></div>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>
