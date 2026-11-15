@@ -1,0 +1,11 @@
+// Cloudflare Workers の静的アセットで配信する設定（docs/SPEC.md「公開」）
+// いまは開発用の Worker だけ。本番（自分のドメイン、GitHub 連携で push 時に自動公開）はあとで足す
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "four-coloring-game-dev",
+  "compatibility_date": "2026-11-01",
+  // サーバー側の処理は持たない。dist/ の静的ファイルを配るだけ
+  "assets": {
+    "directory": "./dist"
+  }
+}
