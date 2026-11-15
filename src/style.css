@@ -128,9 +128,8 @@ svg.th{display:block}
 #share{position:fixed;inset:0;z-index:10;display:none;background:rgba(20,28,36,.45)}
 #share.on{display:block}
 .sheet{position:absolute;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;background:var(--paper);border-top:1.5px solid var(--ink);border-radius:14px 14px 0 0;
-  padding:10px 16px calc(22px + env(safe-area-inset-bottom));max-height:92%;overflow:auto;transform:translateY(100%);transition:transform .25s ease}
+  padding:16px 16px calc(22px + env(safe-area-inset-bottom));max-height:92%;overflow:auto;transform:translateY(100%);transition:transform .25s ease}
 #share.show .sheet{transform:none}
-.grab{width:44px;height:5px;border-radius:3px;background:var(--rule);margin:0 auto 10px}
 .sh-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .sh-h b{font-family:var(--m);font-size:19px}
 .sh-h button{border:0;background:none;font-size:24px;color:var(--sub);padding:0 4px}
