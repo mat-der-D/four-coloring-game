@@ -185,8 +185,20 @@ function drawConflicts() {
 function updateLeft() {
   const left = color.filter((c) => c < 0).length;
   $("left").innerHTML = left ? `のこり<b class="num">${left}</b>地域` : "";
+  $("reset").disabled = done || left === color.length;
 }
 $("hl").onchange = drawConflicts;
+
+// 塗りをすべて消す。タイムは止めない（最初からやり直すならクリア後の「もう一度」と同じになる）
+$("reset").onclick = () => { $("rs-dlg").returnValue = ""; $("rs-dlg").showModal(); };
+$("rs-dlg").addEventListener("click", (e) => { if (e.target.id === "rs-dlg") $("rs-dlg").close(); }); // 外側を押したらやめる
+$("rs-dlg").addEventListener("close", () => {
+  if ($("rs-dlg").returnValue !== "yes" || done) return;
+  color.fill(-1);
+  for (const el of $("regs").children) { el.style.fill = BLANK; el.style.stroke = BLANK; }
+  conflicts.clear();
+  drawConflicts(); updateLeft();
+});
 
 let toastT;
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 1600); }

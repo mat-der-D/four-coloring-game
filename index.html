@@ -42,6 +42,7 @@
     <svg id="map" xmlns="http://www.w3.org/2000/svg"><defs id="pats"></defs><g id="vp"><g id="regs"></g><path id="border"/><g id="conf"></g></g></svg>
     <div class="note" id="note" hidden><span class="x">×</span>同じ色の隣りあい <b class="num" id="nconf"></b> か所</div>
     <div id="toast"></div>
+    <button class="reset" id="reset" disabled>↺ リセット</button>
   </div>
   <div class="gf">
     <div class="r1">
@@ -72,6 +73,18 @@
 </div>
 
 <!-- 共有シート: クリア画面の「共有」で下から出る -->
+<!-- 塗りのリセット: 押し間違いで消えないよう確かめる -->
+<dialog id="rs-dlg" aria-labelledby="rs-t">
+  <form method="dialog">
+    <b id="rs-t">塗りをすべて消しますか？</b>
+    <p>タイムはそのまま進みます。</p>
+    <div class="rs-btns">
+      <button value="no" autofocus>やめる</button>
+      <button value="yes" class="danger">消す</button>
+    </div>
+  </form>
+</dialog>
+
 <div id="share" aria-hidden="true">
   <div class="sheet" role="dialog" aria-label="共有する">
     <div class="sh-h"><b>共有する</b><button id="sh-close" aria-label="閉じる">×</button></div>
