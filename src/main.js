@@ -189,7 +189,7 @@ function updateLeft() {
 }
 $("hl").onchange = drawConflicts;
 
-// 塗りをすべて消す。タイムは止めない（最初からやり直すならクリア後の「もう一度」と同じになる）
+// 塗りをすべて消し、タイムも 0 に戻す（次に塗った時点から計り直す）。地図の拡大・位置はそのまま
 $("reset").onclick = () => { $("rs-dlg").returnValue = ""; $("rs-dlg").showModal(); };
 $("rs-dlg").addEventListener("click", (e) => { if (e.target.id === "rs-dlg") $("rs-dlg").close(); }); // 外側を押したらやめる
 $("rs-dlg").addEventListener("close", () => {
@@ -197,6 +197,7 @@ $("rs-dlg").addEventListener("close", () => {
   color.fill(-1);
   for (const el of $("regs").children) { el.style.fill = BLANK; el.style.stroke = BLANK; }
   conflicts.clear();
+  clearInterval(timerId); t0 = null; $("timer").textContent = "0:00.0";
   drawConflicts(); updateLeft();
 });
 
